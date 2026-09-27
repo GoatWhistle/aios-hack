@@ -24,6 +24,26 @@ SUBMISSION_ARTIFACT = ("submission", "claimed_npv.json")
 SUBMISSION_SCHEDULE = ("submission", "well_schedule.inc")
 VERIFY_MODE = "verify"
 RUNNING_STATUS = "running"
+SEARCH_MODE = "search"
+
+
+def _search_progress(store: JobStore, directory: Path) -> dict[str, Any] | None:
+    progress = store.artifact(directory, "search-progress.json")
+    if progress is None:
+        return None
+    stage = progress.get("stage")
+    step = progress.get("step")
+    total = progress.get("total")
+    if (
+        not isinstance(stage, str)
+        or type(step) is not int
+        or type(total) is not int
+        or total < 0
+        or step < 0
+        or step > total
+    ):
+        return None
+    return {"stage": stage, "step": step, "total": total}
 
 
 def _attach_sidecars(store: JobStore, directory: Path, data: dict[str, Any]) -> None:
@@ -71,10 +91,15 @@ def project_run(store: JobStore, directory: Path, data: dict[str, Any]) -> dict[
         progress = progress_of(directory)
         if progress is not None:
             data["progress"] = progress
+    elif data.get("status") == RUNNING_STATUS and data.get("mode") == SEARCH_MODE:
+        progress = _search_progress(store, directory)
+        if progress is not None:
+            data["progress"] = progress
     flow_seconds = flow_seconds_of(directory)
     if flow_seconds is not None:
         data["flow_seconds"] = flow_seconds
     _attach_submission(store, directory, data)
+    data["comparison_available"] = store.artifact(directory, "comparison.json") is not None
     return data
 
 

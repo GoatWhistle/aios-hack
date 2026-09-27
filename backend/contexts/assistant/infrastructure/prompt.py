@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -49,49 +50,68 @@ class PromptResources:
         return str(names.get(lang, names[DEFAULT_LANG]))
 
 
-PROMPT_TEXT = PromptResources()
+@lru_cache(maxsize=2)
+def prompt_resources(lang: str = PROMPT_LANG) -> PromptResources:
+    resource_lang = lang if lang in {"ru", "en"} else PROMPT_LANG
+    return PromptResources(resource_lang)
 
 
-def format_rules(lang: str) -> tuple[str, ...]:
+PROMPT_TEXT = prompt_resources()
+
+
+def format_rules(
+    lang: str, resources: PromptResources | None = None
+) -> tuple[str, ...]:
+    resources = resources or prompt_resources(lang)
     return tuple(
         template.format(
             max_caption_sentences=MAX_CAPTION_SENTENCES,
             answer_marker=ANSWER_MARKER,
             answer_limit=ANSWER_LIMIT,
         )
-        for template in PROMPT_TEXT.lines("format_rules")
+        for template in resources.lines("format_rules")
     )
 
 
-def context_lines(console: ConsoleContext) -> list[str]:
-    lines = [PROMPT_TEXT.context_label("scenario").format(value=console.scenario)]
+def context_lines(
+    console: ConsoleContext, resources: PromptResources | None = None
+) -> list[str]:
+    resources = resources or prompt_resources(console.lang)
+    lines = [resources.context_label("scenario").format(value=console.scenario)]
     if console.step is not None:
-        lines.append(PROMPT_TEXT.context_label("step").format(value=console.step))
+        lines.append(resources.context_label("step").format(value=console.step))
     if console.date is not None:
-        lines.append(PROMPT_TEXT.context_label("date").format(value=console.date))
+        lines.append(resources.context_label("date").format(value=console.date))
     if console.selected_well is not None:
         lines.append(
-            PROMPT_TEXT.context_label("selected_well").format(
+            resources.context_label("selected_well").format(
                 value=console.selected_well
             )
         )
+    if console.run_id is not None:
+        lines.append(resources.context_label("run_id").format(value=console.run_id))
+    if console.context_version is not None:
+        lines.append(resources.context_label("context_version").format(value=console.context_version))
     if console.workspace is not None and console.view is not None:
         lines.append(
-            PROMPT_TEXT.context_label("screen").format(
+            resources.context_label("screen").format(
                 workspace=console.workspace, view=console.view
             )
         )
     return lines
 
 
-def live_lines(live: Mapping[str, Any] | None) -> list[str]:
+def live_lines(
+    live: Mapping[str, Any] | None, resources: PromptResources | None = None
+) -> list[str]:
+    resources = resources or PROMPT_TEXT
     if not live:
         return []
     lines: list[str] = []
     champion = live.get("champion")
     if isinstance(champion, Mapping) and champion.get("recorded"):
         lines.append(
-            PROMPT_TEXT.live_label("champion").format(
+            resources.live_label("champion").format(
                 schedule_hash=str(champion.get("schedule_hash"))[:12],
                 npv=champion.get("opm_npv_rub"),
                 sound=champion.get("sound"),
@@ -100,17 +120,17 @@ def live_lines(live: Mapping[str, Any] | None) -> list[str]:
     last = live.get("last_run")
     if isinstance(last, Mapping) and last.get("recorded"):
         lines.append(
-            PROMPT_TEXT.live_label("last_run").format(
+            resources.live_label("last_run").format(
                 run_id=last.get("run_id"),
                 status=last.get("status"),
                 verified_npv=last.get("verified_npv"),
             )
         )
     elif isinstance(last, Mapping) and last.get("reason"):
-        lines.append(PROMPT_TEXT.live_label("no_runs").format(reason=last["reason"]))
+        lines.append(resources.live_label("no_runs").format(reason=last["reason"]))
     alerts = live.get("alerts")
     if isinstance(alerts, Sequence) and alerts:
-        item = PROMPT_TEXT.live_label("alert_item")
+        item = resources.live_label("alert_item")
         listed = ", ".join(
             item.format(
                 name=row.get("name"), well=row.get("well"), step=row.get("step")
@@ -118,12 +138,15 @@ def live_lines(live: Mapping[str, Any] | None) -> list[str]:
             for row in alerts
             if isinstance(row, Mapping)
         )
-        lines.append(PROMPT_TEXT.live_label("alerts").format(listed=listed))
+        lines.append(resources.live_label("alerts").format(listed=listed))
     return lines
 
 
-def about_lines(system: SystemMap | None, lang: str) -> list[str]:
-    fallback = list(PROMPT_TEXT.lines("fallback_about"))
+def about_lines(
+    system: SystemMap | None, lang: str, resources: PromptResources | None = None
+) -> list[str]:
+    resources = resources or prompt_resources(lang)
+    fallback = list(resources.lines("fallback_about"))
     if system is None:
         return fallback
     lines = system.brief(lang, BRIEF_NODES)
@@ -137,25 +160,26 @@ def build_system_prompt(
     live: Mapping[str, Any] | None = None,
     memory: str = "",
 ) -> str:
-    language = PROMPT_TEXT.language_name(lang)
-    parts: list[str] = list(PROMPT_TEXT.lines("role"))
-    parts.append(PROMPT_TEXT.section("about"))
-    parts.extend(f"- {line}" for line in about_lines(system, lang))
-    parts.append(PROMPT_TEXT.section("console_context"))
-    parts.extend(context_lines(console))
-    live_block = live_lines(live)
+    resources = prompt_resources(lang)
+    language = resources.language_name(lang)
+    parts: list[str] = list(resources.lines("role"))
+    parts.append(resources.section("about"))
+    parts.extend(f"- {line}" for line in about_lines(system, lang, resources))
+    parts.append(resources.section("console_context"))
+    parts.extend(context_lines(console, resources))
+    live_block = live_lines(live, resources)
     if live_block:
-        parts.append(PROMPT_TEXT.section("live_state"))
+        parts.append(resources.section("live_state"))
         parts.extend(live_block)
-    parts.append(PROMPT_TEXT.section("defaults_notice"))
-    parts.append(PROMPT_TEXT.section("playbook"))
-    parts.extend(f"- {line}" for line in PROMPT_TEXT.lines("playbook"))
-    parts.append(PROMPT_TEXT.section("format"))
-    parts.extend(f"- {line}" for line in format_rules(lang))
-    parts.append(PROMPT_TEXT.section("rules"))
-    parts.extend(f"- {line}" for line in PROMPT_TEXT.lines("rules"))
+    parts.append(resources.section("defaults_notice"))
+    parts.append(resources.section("playbook"))
+    parts.extend(f"- {line}" for line in resources.lines("playbook"))
+    parts.append(resources.section("format"))
+    parts.extend(f"- {line}" for line in format_rules(lang, resources))
+    parts.append(resources.section("rules"))
+    parts.extend(f"- {line}" for line in resources.lines("rules"))
     if memory:
-        parts.append(PROMPT_TEXT.section("memory"))
+        parts.append(resources.section("memory"))
         parts.append(memory)
-    parts.append(PROMPT_TEXT.section("language_line").format(language=language))
+    parts.append(resources.section("language_line").format(language=language))
     return "\n".join(parts)

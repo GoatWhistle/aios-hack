@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Iterator
 
 import pytest
 
+from backend.contexts.assistant.domain.cancellation import CancellationToken
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
     ChatMessage,
     Done,
@@ -157,7 +159,138 @@ def test_retry_once_then_report_upstream(server: tuple[str, _Recorder]) -> None:
     with pytest.raises(UpstreamError) as error:
         list(client.stream([ChatMessage(role="user", content="?")], [], "s"))
     assert "429" in str(error.value)
+    assert error.value.code == "provider-rate-limit"
+    assert error.value.details["http_status"] == 429
     assert len(recorder.bodies) == 2
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_code", "expected_attempts"),
+    [(401, "provider-auth", 1), (503, "provider-server-error", 2)],
+)
+def test_http_provider_failures_keep_actionable_category(
+    server: tuple[str, _Recorder],
+    status: int,
+    expected_code: str,
+    expected_attempts: int,
+) -> None:
+    base_url, recorder = server
+    recorder.status = status
+    client = OpenRouterClient(api_key="k", base_url=base_url)
+
+    with pytest.raises(UpstreamError) as error:
+        list(client.stream([ChatMessage(role="user", content="?")], [], "s"))
+
+    assert error.value.code == expected_code
+    assert error.value.details["http_status"] == status
+    assert len(recorder.bodies) == expected_attempts
+
+
+def test_cancellation_closes_a_blocked_provider_stream() -> None:
+    headers_sent = threading.Event()
+    allow_server_exit = threading.Event()
+
+    class HangingHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args: Any) -> None:
+            return
+
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(length)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            self.wfile.write(b"A\r\n: waiting\n\r\n")
+            self.wfile.flush()
+            headers_sent.set()
+            allow_server_exit.wait(3)
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), HangingHandler)
+    httpd.daemon_threads = True
+    server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    server_thread.start()
+    token = CancellationToken()
+    client = OpenRouterClient(
+        api_key="k",
+        base_url=f"http://127.0.0.1:{httpd.server_address[1]}",
+        timeout=5,
+    )
+    failures: list[BaseException] = []
+
+    def read_stream() -> None:
+        try:
+            list(client.stream([ChatMessage(role="user", content="?")], [], "s", token))
+        except BaseException as error:
+            failures.append(error)
+
+    reader = threading.Thread(target=read_stream, daemon=True)
+    try:
+        reader.start()
+        assert headers_sent.wait(2)
+        token.cancel()
+        reader.join(timeout=1.5)
+        assert not reader.is_alive(), "cancel must unblock the provider stream read"
+        assert len(failures) == 1
+        assert isinstance(failures[0], UpstreamError)
+        assert failures[0].code == "cancelled"
+    finally:
+        allow_server_exit.set()
+        httpd.shutdown()
+        httpd.server_close()
+        server_thread.join(timeout=2)
+
+
+def test_total_stream_timeout_includes_silent_sse_wait() -> None:
+    headers_sent = threading.Event()
+    allow_server_exit = threading.Event()
+
+    class SilentHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args: Any) -> None:
+            return
+
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(length)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            self.wfile.flush()
+            headers_sent.set()
+            allow_server_exit.wait(2)
+            try:
+                self.wfile.write(b"A\r\ndata: [DONE]\n\r\n")
+                self.wfile.flush()
+            except OSError:
+                pass
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), SilentHandler)
+    httpd.daemon_threads = True
+    server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    server_thread.start()
+    client = OpenRouterClient(
+        api_key="k",
+        base_url=f"http://127.0.0.1:{httpd.server_address[1]}",
+        timeout=0.2,
+    )
+    started = time.monotonic()
+    try:
+        with pytest.raises(UpstreamError) as error:
+            list(client.stream([ChatMessage(role="user", content="?")], [], "s"))
+        elapsed = time.monotonic() - started
+        assert headers_sent.is_set()
+        assert error.value.code == "provider-timeout"
+        assert elapsed < 1.0
+    finally:
+        allow_server_exit.set()
+        httpd.shutdown()
+        httpd.server_close()
+        server_thread.join(timeout=2)
 
 
 def test_broken_json_arguments_reported(server: tuple[str, _Recorder]) -> None:

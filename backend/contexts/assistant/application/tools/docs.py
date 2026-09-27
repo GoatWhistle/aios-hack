@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Any, Mapping
+from urllib.parse import quote, urlsplit
 
 from backend.contexts.assistant.infrastructure.docs_index import (
     DEFAULT_K,
@@ -9,9 +11,38 @@ from backend.contexts.assistant.infrastructure.docs_index import (
     shared_index,
 )
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure
+from backend.shared.settings import Settings
 
 PROVENANCE = "docs"
 NO_HITS = "no-doc-hits"
+DOCS_BASE_URL_ENV = "AIOS_JARVIS_DOCS_BASE_URL"
+
+
+def _document_url(source: str, anchor: str, base_url: str | None = None) -> str | None:
+    path = PurePosixPath(source)
+    if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        return None
+    suffix = "/".join(quote(part, safe="") for part in path.parts)
+    if source.startswith("knowledge/docs/"):
+        url = f"/jarvis/{suffix}"
+        encoded_anchor = quote(anchor.removeprefix("#"), safe="-_")
+        return f"{url}#{encoded_anchor}" if anchor else url
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        return None
+    parsed = urlsplit(base)
+    local_http = parsed.scheme == "http" and parsed.hostname in {
+        "localhost", "127.0.0.1", "::1",
+    }
+    if (
+        not parsed.hostname
+        or (parsed.scheme != "https" and not local_http)
+        or parsed.username or parsed.password or parsed.query or parsed.fragment
+    ):
+        return None
+    url = f"{base}/{suffix}"
+    encoded_anchor = quote(anchor.removeprefix("#"), safe="-_")
+    return f"{url}#{encoded_anchor}" if anchor else url
 
 
 def _index(context: ToolContext) -> Any:
@@ -32,6 +63,7 @@ def search_docs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     k = int(requested) if isinstance(requested, (int, float)) else DEFAULT_K
     k = max(1, min(k, MAX_K))
     index = _index(context)
+    docs_base_url = Settings.from_env().raw.get(DOCS_BASE_URL_ENV)
     try:
         hits = index.search(query, k, scope)
     except DocsIndexError as error:
@@ -48,7 +80,17 @@ def search_docs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         "query": query,
         "scope": scope,
         "terms": _terms(query),
-        "hits": [hit.as_dict() for hit in hits],
+        "hits": [
+            {
+                **hit.as_dict(),
+                **(
+                    {"url": url}
+                    if (url := _document_url(hit.source, hit.anchor, docs_base_url)) is not None
+                    else {}
+                ),
+            }
+            for hit in hits
+        ],
         "indexed_chunks": index.size(),
         "indexed_files": len(index.sources()),
     }

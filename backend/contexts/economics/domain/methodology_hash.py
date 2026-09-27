@@ -7,9 +7,17 @@ from pathlib import Path
 from backend.contexts.reservoir.domain.horizon import HORIZON
 
 METHODOLOGY_FILES: tuple[str, ...] = (
-    "npv.py",
+    "npv/__init__.py",
+    "npv/cell_flows.py",
+    "npv/evaluator.py",
+    "npv/table.py",
+    "npv/terms.py",
     "ledger.py",
-    "decomposition.py",
+    "decomposition/__init__.py",
+    "decomposition/contributions.py",
+    "decomposition/invariants.py",
+    "decomposition/report.py",
+    "decomposition/types.py",
     "fund.py",
     "esp.py",
 )

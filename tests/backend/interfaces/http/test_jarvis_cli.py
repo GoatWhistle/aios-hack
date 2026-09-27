@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import threading
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,11 +42,14 @@ def test_parser_reads_host_and_port_from_the_environment(
 
 
 def test_check_without_a_key_exits_non_zero(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    code = cli.main(["--check"])
+    monkeypatch.delenv("JARVIS_API_KEY", raising=False)
+    empty_env = tmp_path / "empty.env"
+    empty_env.write_text("", encoding="utf-8")
+    code = cli.main(["--env-file", str(empty_env), "--check"])
     assert code == 1
     assert "health=503" in capsys.readouterr().out
 
@@ -62,6 +66,11 @@ def test_compose_declares_the_jarvis_service() -> None:
     assert 'command: ["jarvis"]' in compose
     assert "OPENROUTER_API_KEY" in compose
     assert "AIOS_JARVIS_PORT:-8010" in compose
+    assert "AIOS_JARVIS_RUNS: ${AIOS_JARVIS_RUNS:-/out/jarvis-evidence-20260926/runs}" in compose
+    assert "AIOS_JARVIS_WEB_RUNS: ${AIOS_JARVIS_WEB_RUNS:-/out/web-runs}" in compose
+    assert "AIOS_JARVIS_SESSIONS: ${AIOS_JARVIS_SESSIONS:-/out/jarvis/sessions}" in compose
+    assert "- ./out:/out" in compose
+    assert "${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro" in compose
 
 
 def test_readme_documents_the_service() -> None:
@@ -90,6 +99,20 @@ class UpstreamHandler(BaseHTTPRequestHandler):
         return
 
     def do_GET(self) -> None:
+        if self.path == "/api/jarvis/stream-test":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            first = b"data: first\n\n"
+            self.wfile.write(f"{len(first):X}\r\n".encode() + first + b"\r\n")
+            self.wfile.flush()
+            time.sleep(0.7)
+            second = b"data: second\n\n"
+            self.wfile.write(f"{len(second):X}\r\n".encode() + second + b"\r\n")
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+            return
         payload = json.dumps({"ok": True, "path": self.path}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -135,6 +158,7 @@ def test_web_forwards_the_jarvis_prefix(web_with_upstream: str) -> None:
     with urllib.request.urlopen(
         f"{web_with_upstream}/api/jarvis/health", timeout=5
     ) as response:
+        assert response.version == 11
         body = json.loads(response.read().decode("utf-8"))
     assert body == {"ok": True, "path": "/api/jarvis/health"}
 
@@ -142,3 +166,14 @@ def test_web_forwards_the_jarvis_prefix(web_with_upstream: str) -> None:
 def test_web_still_serves_static_files(web_with_upstream: str) -> None:
     with urllib.request.urlopen(f"{web_with_upstream}/index.html", timeout=5) as page:
         assert page.read().decode("utf-8").startswith("<!doctype html>")
+
+
+def test_proxy_delivers_small_sse_event_before_the_next_event(web_with_upstream: str) -> None:
+    started = time.monotonic()
+    with urllib.request.urlopen(
+        f"{web_with_upstream}/api/jarvis/stream-test", timeout=5
+    ) as response:
+        assert response.readline() == b"data: first\n"
+        assert time.monotonic() - started < 0.5
+        assert response.readline() == b"\n"
+        assert response.readline() == b"data: second\n"

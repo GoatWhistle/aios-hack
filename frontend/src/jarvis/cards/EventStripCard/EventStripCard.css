@@ -13,6 +13,13 @@
   color: var(--color-text-faint);
 }
 
+.jarvis-events-empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text-muted);
+}
+
 .jarvis-events-total {
   font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
@@ -72,4 +79,20 @@
   height: var(--size-swatch);
   border-radius: var(--radius-sm);
   background: var(--color-text-muted);
+}
+
+.jarvis-events-details {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-events-details summary {
+  cursor: pointer;
+}
+
+.jarvis-events-details ol {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-5);
 }

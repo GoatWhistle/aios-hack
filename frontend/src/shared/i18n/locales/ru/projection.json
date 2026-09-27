@@ -33,6 +33,8 @@
   "pole.map": "Карта",
   "poleLabel": "Проекция",
   "shown": "Показано скважин: {shown} из {total}",
+  "activeStep": "Контрольный шаг {step} · {date}",
+  "stepUnavailable": "Активный контрольный шаг не загружен",
   "threshold.edges": "Показано {shown} связей из {total}",
   "threshold.label": "Порог λ",
   "tip.injection": "Закачка",

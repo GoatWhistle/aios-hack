@@ -5,6 +5,9 @@ from backend.contexts.assistant.application.tools.schemas.base import (
     ToolDefinition,
     obj,
 )
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
+
+MAX_SERIES_STEP = N_INTERVALS
 
 
 WELL_TOOLS: tuple[ToolDefinition, ...] = (
@@ -36,16 +39,38 @@ WELL_TOOLS: tuple[ToolDefinition, ...] = (
             {
                 "well": {"type": "string"},
                 "metric": {"type": "string", "enum": list(SERIES_METRICS)},
-                "from_step": {"type": "integer"},
-                "to_step": {"type": "integer"},
+                "from_step": {"type": "integer", "minimum": 0, "maximum": MAX_SERIES_STEP},
+                "to_step": {"type": "integer", "minimum": 0, "maximum": MAX_SERIES_STEP},
                 "window": {
                     "type": "array",
-                    "items": {"type": "integer"},
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {"type": "integer", "minimum": 0, "maximum": MAX_SERIES_STEP},
                     "description": "highlight interval [from, to] inside the series",
                 },
             },
             ("well", "metric"),
         ),
         card_type="series",
+    ),
+    ToolDefinition(
+        name="compare_wells",
+        description=(
+            "Compare two wells at one control step using the recorded state: role, "
+            "availability, operating status, liquid and injection rates, water cut, "
+            "pressure, setpoint and whole-horizon NPV. Reports measured direct "
+            "connectivity and whether decision evidence exists for each well. It "
+            "does not claim a recorded pairwise preference or causal effect."
+        ),
+        schema=obj(
+            {
+                "a": {"type": "string", "description": "first well identifier"},
+                "b": {"type": "string", "description": "second well identifier"},
+                "step": {"type": "integer", "description": "control step; defaults to console context"},
+                "run_id": {"type": "string", "description": "optional run for recorded decision evidence"},
+            },
+            ("a", "b"),
+        ),
+        card_type="well-comparison",
     ),
 )

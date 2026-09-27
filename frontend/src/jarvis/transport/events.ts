@@ -39,6 +39,15 @@ export const parseConsoleAction = (value: unknown): ConsoleAction | null => {
   if (str(value.scenario)) {
     action.scenario = value.scenario;
   }
+  if (str(value.run_id) || value.run_id === null) {
+    action.run_id = value.run_id;
+  }
+  if (typeof value.companion_only === 'boolean') {
+    action.companion_only = value.companion_only;
+  }
+  if (typeof value.connections_available === 'boolean') {
+    action.connections_available = value.connections_available;
+  }
   if (num(value.step)) {
     action.step = Math.trunc(value.step);
   }
@@ -50,6 +59,9 @@ export const parseConsoleAction = (value: unknown): ConsoleAction | null => {
   }
   if (str(value.spotlight)) {
     action.spotlight = value.spotlight;
+  }
+  if (typeof value.restore_previous === 'boolean') {
+    action.restore_previous = value.restore_previous;
   }
   return action;
 };
@@ -86,6 +98,8 @@ const parseContext = (value: unknown): JarvisAskContext | null => {
   }
   return {
     scenario: value.scenario,
+    run_id: str(value.run_id) ? value.run_id : null,
+    context_version: str(value.context_version) ? value.context_version : '',
     step: Math.trunc(value.step),
     date: value.date,
     selected_well: str(value.selected_well) ? value.selected_well : null,

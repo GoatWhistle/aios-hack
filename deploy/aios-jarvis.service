@@ -1,0 +1,21 @@
+[Unit]
+Description=AIOS Jarvis and console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aios
+Group=aios
+WorkingDirectory=/opt/aios
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/aios/jarvis.env
+ExecStart=/opt/aios/.venv/bin/python /opt/aios/scripts/jarvis_stack.py --env-file /etc/aios/jarvis.env --web-port 5199 --api-port 8010
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

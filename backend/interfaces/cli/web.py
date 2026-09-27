@@ -4,7 +4,7 @@ import argparse
 import functools
 import http.server
 import json
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from backend.contexts.runs.application.web_runs import WebRuns
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from backend.interfaces.http.kit.errors import to_response
 from backend.contexts.runs.domain.errors import RunRequestError
 from backend.shared.errors import AiosError
 from backend.shared.i18n.catalog import translate
+from backend.shared.settings import Settings
 
 DEFAULT_DIST = Path("/app/frontend/dist")
 MAX_BODY_BYTES = 100_000
@@ -44,7 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
-    runs = WebRuns(Path('out/web-runs'))
+    # The Jarvis proxy streams chunked responses. HTTP/1.0 clients can expose
+    # the chunk delimiters as body text, breaking JSON and SSE in browsers.
+    protocol_version = 'HTTP/1.1'
+    runs = WebRuns(Settings.from_env().jarvis_web_runs or Path('out/web-runs'))
 
     def _json(self, status, data):
         body = json.dumps(data, ensure_ascii=False, allow_nan=False).encode()
@@ -62,6 +66,18 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         route = urlsplit(self.path).path
         if route == '/api/runs':
             self._json(200, {'runs': self.runs.list()})
+        elif route.startswith('/api/runs/by-request/'):
+            request_id = unquote(route[len('/api/runs/by-request/'):])
+            try:
+                run = self.runs.by_request_id(request_id)
+            except AiosError as error:
+                status, body = to_response(error)
+                self._json(status, body)
+                return
+            if run is None:
+                self._json(404, {'error': 'run-not-found', 'message': 'No run for this confirmed request'})
+            else:
+                self._json(200, run)
         elif route.startswith('/api/runs/') and route.endswith('/comparison'):
             run_id = route[len('/api/runs/'):-len('/comparison')]
             document = self.runs.comparison(run_id)
@@ -87,16 +103,27 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         if is_jarvis_path(self.path):
             forward(self)
             return
-        self._json(
-                404,
-                {'error': UNKNOWN_ROUTE_KEY, 'message': translate(UNKNOWN_ROUTE_KEY)},
-            )
+        route = urlsplit(self.path).path
+        if not route.startswith('/api/runs/'):
+            self._json(404, {'error': UNKNOWN_ROUTE_KEY, 'message': translate(UNKNOWN_ROUTE_KEY)})
+            return
+        origin = self.headers.get('Origin')
+        if (origin and urlsplit(origin).netloc != self.headers.get('Host')) or self.headers.get('Sec-Fetch-Site') == 'cross-site':
+            self._json(403, {'error': FOREIGN_ORIGIN_KEY, 'message': translate(FOREIGN_ORIGIN_KEY)})
+            return
+        run_id = route[len('/api/runs/'):]
+        try:
+            self._json(202, self.runs.cancel(run_id))
+        except AiosError as error:
+            status, body = to_response(error)
+            self._json(status, body)
 
     def do_POST(self):  # type: ignore[override]
         if is_jarvis_path(self.path):
             forward(self)
             return
-        if urlsplit(self.path).path != '/api/runs':
+        route = urlsplit(self.path).path
+        if route not in {'/api/runs', '/api/cases/draft', '/api/cases/alternative'}:
             self._json(
                 404,
                 {'error': UNKNOWN_ROUTE_KEY, 'message': translate(UNKNOWN_ROUTE_KEY)},
@@ -128,7 +155,12 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
             )
             if not isinstance(payload, dict):
                 raise RunRequestError(BODY_SHAPE_REJECTED, message_key=BODY_SHAPE_KEY)
-            self._json(202, self.runs.start(payload))
+            if route == '/api/cases/draft':
+                self._json(200, self.runs.draft(payload))
+            elif route == '/api/cases/alternative':
+                self._json(200, self.runs.draft_alternative(payload))
+            else:
+                self._json(202, self.runs.start(payload))
         except AiosError as error:
             status, body = to_response(error)
             self._json(status, body)

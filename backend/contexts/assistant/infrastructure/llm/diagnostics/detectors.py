@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Mapping, Sequence
 
 from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
@@ -146,12 +147,17 @@ def detect_pressure_drop_at_high_rates(
     state_at_date: Sequence[StateAtDate],
     bhp_drop_min: float,
     liquid_rate_min: float,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> list[Finding]:
     by_well: dict[str, dict[int, StateAtDate]] = {}
-    for row in state_at_date:
+    for position, row in enumerate(state_at_date):
+        if check_cancelled is not None and position % 256 == 0:
+            check_cancelled()
         by_well.setdefault(row.well, {})[row.deck_date_index] = row
     findings: list[Finding] = []
     for well in sorted(by_well):
+        if check_cancelled is not None:
+            check_cancelled()
         rows = by_well[well]
         dates = sorted(rows)
         for prev, curr in zip(dates, dates[1:]):

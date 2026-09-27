@@ -98,12 +98,23 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
       error: null,
       done: false
     };
-    const scenes = [...state.scenes, scene];
+    const briefingIndex = event.scene_id === 'briefing'
+      ? state.scenes.findIndex((entry) => entry.sourceId === 'briefing')
+      : -1;
+    const activeWasBriefing = state.scenes[state.activeIndex]?.sourceId === 'briefing';
+    const scenes = state.scenes.slice();
+    if (briefingIndex >= 0) {
+      scenes[briefingIndex] = scene;
+    } else {
+      scenes.push(scene);
+    }
     return {
       ...state,
       scenes,
       seq,
-      activeIndex: scenes.length - 1,
+      activeIndex: briefingIndex >= 0 && !activeWasBriefing
+        ? state.activeIndex
+        : briefingIndex >= 0 ? briefingIndex : scenes.length - 1,
       status: 'thinking',
       tool: null
     };

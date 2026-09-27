@@ -142,8 +142,8 @@ graph TD
     style WELL fill:#eef2f6,stroke:#9fb3c8
 ```
 
-Реестр агентов — `policy/domain/agents/registry.py`. Каждое решение попадает
-в след (`policy/domain/trace.py`), поэтому инженер может увидеть, **почему**
+Реестр агентов — `backend/contexts/policy/domain/agents/registry.py`. Каждое решение попадает
+в след (`backend/contexts/policy/domain/trace.py`), поэтому инженер может увидеть, **почему**
 агент выбрал именно этот режим.
 
 ## 5. Объяснимость: Джарвис

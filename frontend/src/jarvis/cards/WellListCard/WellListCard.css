@@ -1,3 +1,9 @@
+.jarvis-list-period {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .jarvis-list {
   display: flex;
   flex-direction: column;

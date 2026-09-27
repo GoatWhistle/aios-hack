@@ -16,7 +16,7 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
   const hierarchyIndex = useDataset('hierarchy-index');
 
   return useMemo(() => {
-    const states: Partial<Record<DatasetName, { status: string }>> = {
+    const states: Partial<Record<DatasetName, { status: string; notFound?: boolean }>> = {
       timeline,
       trace,
       wells,
@@ -27,7 +27,10 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
       'hierarchy-index': hierarchyIndex
     };
     const required = datasetsFor(workspace);
-    if (required.some((name) => states[name]?.status === 'error')) {
+    if (required.some((name) => {
+      const state = states[name];
+      return state?.status === 'error' && !(name === 'hierarchy-index' && 'notFound' in state && state.notFound);
+    })) {
       return 'error';
     }
     if (required.some((name) => states[name]?.status === 'loading')) {

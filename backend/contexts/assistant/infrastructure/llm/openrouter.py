@@ -5,11 +5,14 @@ from backend.contexts.assistant.domain.errors import (
 )
 
 import json
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Iterator, Sequence
 
+from backend.contexts.assistant.domain.cancellation import CancellationToken
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
     ChatEvent,
     ChatMessage,
@@ -29,6 +32,57 @@ DEFAULT_MAX_TOKENS = 2400
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TIMEOUT = 60.0
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+
+def _abort_response(response: Any) -> None:
+    try:
+        sock = response.fp.raw._sock
+        sock.shutdown(socket.SHUT_RDWR)
+    except (AttributeError, OSError, ValueError):
+        pass
+    try:
+        response.close()
+    except (OSError, ValueError):
+        pass
+
+
+def _remaining_time(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("provider stream exceeded its total time budget")
+    return remaining
+
+
+def _response_lines(response: Any, deadline: float) -> Iterator[str]:
+    while True:
+        remaining = _remaining_time(deadline)
+        try:
+            response.fp.raw._sock.settimeout(remaining)
+        except AttributeError:
+            # Test doubles and alternate response implementations may not expose
+            # the urllib socket. Production urllib responses do.
+            pass
+        line = response.readline()
+        if not line:
+            return
+        yield line.decode("utf-8", errors="replace")
+
+
+def _wait_before_retry(
+    deadline: float, cancellation: CancellationToken | None
+) -> None:
+    try:
+        pause = min(0.5, _remaining_time(deadline))
+    except TimeoutError as error:
+        raise UpstreamError(
+            "openrouter did not respond within its total time budget",
+            code="provider-timeout",
+        ) from error
+    if cancellation is not None:
+        if cancellation.wait(pause):
+            raise UpstreamError("request cancelled", code="cancelled")
+    else:
+        time.sleep(pause)
 
 
 class _ToolCallBuffer:
@@ -118,6 +172,13 @@ class OpenRouterClient:
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._timeout = timeout
+        self._ssl_context = ssl.create_default_context()
+        try:
+            import certifi
+        except ImportError:
+            pass
+        else:
+            self._ssl_context.load_verify_locations(cafile=certifi.where())
 
     @property
     def provider(self) -> str:
@@ -148,7 +209,13 @@ class OpenRouterClient:
             payload["tool_choice"] = "auto"
         return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
-    def _open(self, body: bytes) -> Any:
+    def _open(
+        self,
+        body: bytes,
+        cancellation: CancellationToken | None = None,
+        deadline: float | None = None,
+    ) -> Any:
+        deadline = deadline or (time.monotonic() + self._timeout)
         request = urllib.request.Request(
             f"{self._base_url}/chat/completions",
             data=body,
@@ -162,23 +229,58 @@ class OpenRouterClient:
         )
         attempts = 0
         while True:
+            if cancellation is not None and cancellation.cancelled:
+                raise UpstreamError("request cancelled", code="cancelled")
+            try:
+                remaining = _remaining_time(deadline)
+            except TimeoutError as error:
+                raise UpstreamError(
+                    f"{self.provider} did not respond within {self._timeout:g} seconds",
+                    code="provider-timeout",
+                ) from error
             attempts += 1
             try:
-                return urllib.request.urlopen(request, timeout=self._timeout)
+                response = urllib.request.urlopen(
+                    request, timeout=remaining, context=self._ssl_context,
+                )
+                if cancellation is not None and cancellation.cancelled:
+                    _abort_response(response)
+                    raise UpstreamError("request cancelled", code="cancelled")
+                return response
             except urllib.error.HTTPError as error:
                 if error.code in RETRY_STATUSES and attempts == 1:
-                    time.sleep(0.5)
+                    _wait_before_retry(deadline, cancellation)
                     continue
-                detail = error.read().decode("utf-8", errors="replace")[:400]
+                detail = error.read().decode("utf-8", errors="replace")
+                detail = detail.replace(self._api_key, "[REDACTED]")[:400]
+                if error.code == 401:
+                    code = "provider-auth"
+                elif error.code == 429:
+                    code = "provider-rate-limit"
+                elif error.code >= 500:
+                    code = "provider-server-error"
+                else:
+                    code = "provider-http-error"
                 raise UpstreamError(
-                    f"OpenRouter answered {error.code}: {detail or error.reason}"
+                    f"{self.provider} answered {error.code}: {detail or error.reason}",
+                    code=code,
+                    http_status=error.code,
                 ) from error
             except urllib.error.URLError as error:
                 if attempts == 1:
-                    time.sleep(0.5)
+                    _wait_before_retry(deadline, cancellation)
                     continue
+                if isinstance(error.reason, TimeoutError):
+                    code = "provider-timeout"
+                else:
+                    code = "provider-unreachable"
                 raise UpstreamError(
-                    f"OpenRouter is unreachable: {error.reason}"
+                    f"{self.provider} is unreachable: {error.reason}", code=code
+                ) from error
+            except TimeoutError as error:
+                raise UpstreamError(
+                    f"{self.provider} did not respond within {self._timeout:g} seconds",
+                    code="provider-timeout",
                 ) from error
 
     def stream(
@@ -186,38 +288,60 @@ class OpenRouterClient:
         messages: Sequence[ChatMessage],
         tools: Sequence[ToolSpec],
         system: str,
+        cancellation: CancellationToken | None = None,
     ) -> Iterator[ChatEvent]:
-        response = self._open(self._body(messages, tools, system))
+        deadline = time.monotonic() + self._timeout
+        response = self._open(self._body(messages, tools, system), cancellation, deadline)
+        unregister = (
+            cancellation.register(lambda: _abort_response(response))
+            if cancellation is not None
+            else lambda: None
+        )
         buffer = _ToolCallBuffer()
         stop = "end_turn"
         usage: dict[str, int] = {}
-        with response:
-            lines = (line.decode("utf-8", errors="replace") for line in response)
-            for chunk in parse_sse_lines(lines):
-                reported = chunk.get("usage")
-                if isinstance(reported, dict):
-                    usage = {
-                        key: int(value)
-                        for key, value in reported.items()
-                        if isinstance(value, int)
-                    }
-                error = chunk.get("error")
-                if isinstance(error, dict):
-                    raise UpstreamError(
-                        "OpenRouter returned an error inside the stream: "
-                        f"{error.get('message', 'no description given')}"
-                    )
-                for choice in chunk.get("choices", ()):
-                    delta = choice.get("delta") or {}
-                    content = delta.get("content")
-                    if isinstance(content, str) and content:
-                        yield TextDelta(text=content)
-                    calls = delta.get("tool_calls")
-                    if isinstance(calls, list) and calls:
-                        buffer.absorb(calls)
-                    reason = choice.get("finish_reason")
-                    if isinstance(reason, str) and reason:
-                        stop = reason
-        for call in buffer.drain():
-            yield call
-        yield Done(stop=stop, usage=usage)
+        try:
+            with response:
+                for chunk in parse_sse_lines(_response_lines(response, deadline)):
+                    if cancellation is not None and cancellation.cancelled:
+                        raise UpstreamError("request cancelled", code="cancelled")
+                    reported = chunk.get("usage")
+                    if isinstance(reported, dict):
+                        usage = {
+                            key: int(value)
+                            for key, value in reported.items()
+                            if isinstance(value, int)
+                        }
+                    error = chunk.get("error")
+                    if isinstance(error, dict):
+                        raise UpstreamError(
+                            f"{self.provider} returned an error inside the stream: "
+                            f"{str(error.get('message', 'no description given')).replace(self._api_key, '[REDACTED]')}"
+                        )
+                    for choice in chunk.get("choices", ()):
+                        delta = choice.get("delta") or {}
+                        content = delta.get("content")
+                        if isinstance(content, str) and content:
+                            yield TextDelta(text=content)
+                        calls = delta.get("tool_calls")
+                        if isinstance(calls, list) and calls:
+                            buffer.absorb(calls)
+                        reason = choice.get("finish_reason")
+                        if isinstance(reason, str) and reason:
+                            stop = reason
+            for call in buffer.drain():
+                yield call
+            yield Done(stop=stop, usage=usage)
+        except TimeoutError as error:
+            if cancellation is not None and cancellation.cancelled:
+                raise UpstreamError("request cancelled", code="cancelled") from error
+            raise UpstreamError(
+                f"{self.provider} did not respond within {self._timeout:g} seconds",
+                code="provider-timeout",
+            ) from error
+        except Exception:
+            if cancellation is not None and cancellation.cancelled:
+                raise UpstreamError("request cancelled", code="cancelled")
+            raise
+        finally:
+            unregister()

@@ -14,6 +14,10 @@ export const runRow = (value: unknown): RunRow | null => {
     verified_npv: numOrNull(value.verified_npv),
     sound: boolOrNull(value.sound),
     strategy: strOrNull(value.strategy),
-    seed: numOrNull(value.seed)
+    seed: numOrNull(value.seed),
+    scenario_role: strOrNull(value.scenario_role),
+    generation_reasons_status: strOrNull(value.generation_reasons_status),
+    run_manifest_available: boolOrNull(value.run_manifest_available),
+    availability_note: strOrNull(value.availability_note)
   };
 };

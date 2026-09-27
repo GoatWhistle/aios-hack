@@ -95,18 +95,19 @@ def demo_meta(kind: str) -> dict[str, Any]:
 
 
 HIERARCHY_PROVENANCE = "policy-hierarchy-trace"
+HIERARCHY_REPLAY_PROVENANCE = "policy-hierarchy-replay"
 
 
 def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
     return {
-        "provenance": HIERARCHY_PROVENANCE,
+        "provenance": HIERARCHY_REPLAY_PROVENANCE,
         "synthetic": False,
         "kind": "hierarchy",
         "lambda_measured": any(
             weight != 0.0 for row in artifact.lambda_.matrix for weight in row
         ),
         "agent_registry": list(DEFAULT_REGISTRY.names()),
-        **notice_fields("showcase.notice.hierarchy"),
+        **notice_fields("showcase.notice.hierarchy_replay"),
     }
 
 

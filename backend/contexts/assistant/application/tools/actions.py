@@ -17,7 +17,7 @@ ROUTE_BY_CARD: Mapping[str, tuple[str, str]] = {
     "metric": ("overview", "fund"),
     "well": ("field", "projection"),
     "well-list": ("money", "rank"),
-    "field-map": ("field", "projection"),
+    "field-map": ("field", "maps"),
     "series": ("history", "table"),
     "rule": ("decisions", "rules"),
     "compare": ("money", "comparison"),
@@ -27,6 +27,8 @@ ROUTE_BY_CARD: Mapping[str, tuple[str, str]] = {
     "guide": ("overview", "fund"),
     "status-board": ("money", "comparison"),
     "run-list": ("money", "comparison"),
+    "run-status": ("money", "comparison"),
+    "submission": ("money", "comparison"),
     "run": ("money", "comparison"),
     "physics": ("money", "comparison"),
     "constraints": ("money", "constraints"),
@@ -53,9 +55,29 @@ def build_action(
     card_type: str,
     payload: Mapping[str, Any],
     scenario: str,
+    provenance: str | None = None,
 ) -> dict[str, Any] | None:
     if card_type == "error" or card_type == "doc":
         return None
+    if card_type == "rule" and isinstance(payload.get("run_id"), str):
+        # Keep the external run-backed chart in the companion until the console
+        # graph can render this run's own series rather than showcase data.
+        series = payload.get("run_series")
+        if not isinstance(series, Mapping) or not series.get("rows"):
+            return None
+        action: dict[str, Any] = {
+            "companion_only": True,
+            "run_id": payload["run_id"],
+            "scenario": scenario,
+        }
+        if isinstance(payload.get("well"), str):
+            action["well"] = payload["well"]
+        if isinstance(payload.get("step"), int):
+            action["step"] = payload["step"]
+        connections = payload.get("connectivity_source")
+        if isinstance(connections, Mapping) and connections.get("available") is True:
+            action["connections_available"] = True
+        return action
     if card_type == "system-map":
         return _system_map_action(payload, scenario)
     route = ROUTE_BY_CARD.get(card_type)
@@ -63,6 +85,9 @@ def build_action(
         return None
     workspace, view = route
     action: dict[str, Any] = {"scenario": scenario}
+    run_id = payload.get("run_id")
+    if isinstance(run_id, str) and run_id:
+        action["run_id"] = run_id
     if card_type == "glossary":
         return _knowledge_action(payload, scenario)
     if card_type == "guide":
@@ -103,7 +128,9 @@ def build_action(
     if card_type == "compare":
         side = payload.get("b") or {}
         identifier = side.get("id")
-        if isinstance(identifier, str) and not identifier.startswith(
+        if provenance == "runs" and isinstance(identifier, str):
+            action["run_id"] = identifier
+        elif isinstance(identifier, str) and not identifier.startswith(
             ("run-", "web-")
         ):
             action["scenario"] = identifier

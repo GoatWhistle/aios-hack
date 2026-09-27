@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import time
+import re
+import logging
+import os
+import threading
 from typing import Any, Callable, Mapping
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.artifacts import RunStore, RunError
 from backend.contexts.assistant.infrastructure.docs_index import (
     DocsIndex,
     DocsIndexError,
@@ -19,6 +24,7 @@ from backend.contexts.assistant.infrastructure.system_map import SystemMap, Syst
 from backend.contexts.assistant.infrastructure.tts import TtsEngine, default_voice
 from backend.contexts.assistant.application.tools.context import ConsoleContext
 from backend.contexts.assistant.infrastructure.llm.provider import NoApiKeyError, build_client
+from backend.shared.settings import Settings
 
 DEFAULT_PORT = 8010
 DEFAULT_HOST = "0.0.0.0"
@@ -29,6 +35,9 @@ DEV_ORIGINS: tuple[str, ...] = (
 MAX_BODY_BYTES = 16 * 1024
 MAX_AUDIO_BYTES = 2 * 1024 * 1024
 AUDIO_ROUTE = "/api/jarvis/transcribe"
+MAX_CONCURRENT_REQUESTS_ENV = "JARVIS_MAX_CONCURRENT_REQUESTS"
+DEFAULT_MAX_CONCURRENT_REQUESTS = 8
+HARD_MAX_CONCURRENT_REQUESTS = 64
 
 
 class JarvisService:
@@ -43,13 +52,36 @@ class JarvisService:
         disk: SessionDisk | None = None,
         tts: TtsEngine | None = None,
         stt: SttEngine | None = None,
+        runs: RunStore | None = None,
         clock: Callable[[], float] = time.monotonic,
+        max_concurrent_requests: int | None = None,
     ) -> None:
+        if max_concurrent_requests is None:
+            source = os.environ if env is None else env
+            raw_limit = source.get(MAX_CONCURRENT_REQUESTS_ENV, "")
+            try:
+                max_concurrent_requests = (
+                    int(raw_limit) if raw_limit else DEFAULT_MAX_CONCURRENT_REQUESTS
+                )
+            except ValueError as error:
+                raise ValueError(
+                    f"{MAX_CONCURRENT_REQUESTS_ENV} must be an integer from 1 to "
+                    f"{HARD_MAX_CONCURRENT_REQUESTS}"
+                ) from error
+        if not 1 <= max_concurrent_requests <= HARD_MAX_CONCURRENT_REQUESTS:
+            raise ValueError(
+                f"{MAX_CONCURRENT_REQUESTS_ENV} must be an integer from 1 to "
+                f"{HARD_MAX_CONCURRENT_REQUESTS}"
+            )
         self._store = store if store is not None else ArtifactStore()
         self._knowledge = knowledge if knowledge is not None else Knowledge()
         self._client_error: str | None = None
         self._orchestrator = orchestrator
         self._clock = clock
+        self._request_lock = threading.Lock()
+        self._last_request: dict[str, Any] | None = None
+        self._max_concurrent_requests = max_concurrent_requests
+        self._active_requests = 0
         self._docs_error: str | None = None
         self._system_error: str | None = None
         self._docs = docs if docs is not None else self._load_docs()
@@ -61,6 +93,7 @@ class JarvisService:
             else SessionStore(disk=self._disk)
         )
         self._env = env
+        self._runs = runs
         self._tts = tts if tts is not None else TtsEngine()
         self._stt = stt if stt is not None else SttEngine(env)
         self._briefings = BriefingCache(self._clock, BRIEFING_TTL)
@@ -96,6 +129,7 @@ class JarvisService:
         self._orchestrator = Orchestrator(
             client=client,
             store=self._store,
+            runs=self._runs,
             knowledge=self._knowledge,
             sessions=self._sessions,
             docs=self._docs,
@@ -139,6 +173,18 @@ class JarvisService:
         }
 
     def health(self) -> tuple[int, dict[str, Any]]:
+        data_ready = bool(self._store.scenarios())
+        with self._request_lock:
+            active_requests = self._active_requests
+        model: dict[str, Any] = {
+            "configured": self.available,
+            "connectivity": "unverified" if self.available else "unavailable",
+        }
+        if self.available:
+            model.update(
+                provider=self._orchestrator.provider,
+                name=self._orchestrator.model,
+            )
         body: dict[str, Any] = {
             "data": self._store.scenario().provenance(),
             "scenarios": list(self._store.scenarios()),
@@ -155,6 +201,15 @@ class JarvisService:
                 "tts_voice_en": default_voice("en"),
                 "stt_model": self._stt.model,
             },
+            "readiness": {
+                "data": {"ready": data_ready, "scenario_count": len(self._store.scenarios())},
+                "model": model,
+                "requests": {
+                    "active": active_requests,
+                    "limit": self._max_concurrent_requests,
+                },
+            },
+            "last_request": self.last_request(),
         }
         if self._docs_error is not None:
             body["docs_error"] = self._docs_error
@@ -170,10 +225,111 @@ class JarvisService:
         body["model"] = self._orchestrator.model
         return 200, body
 
+    def last_request(self) -> dict[str, Any] | None:
+        with self._request_lock:
+            return None if self._last_request is None else dict(self._last_request)
+
+    def try_acquire_request(self) -> bool:
+        with self._request_lock:
+            if self._active_requests >= self._max_concurrent_requests:
+                return False
+            self._active_requests += 1
+            return True
+
+    def release_request(self) -> None:
+        with self._request_lock:
+            self._active_requests = max(0, self._active_requests - 1)
+
+    def record_request(
+        self,
+        request_id: str,
+        duration_ms: int,
+        outcome: str,
+        error_code: str | None = None,
+        http_status: int | None = None,
+    ) -> None:
+        provider = self._orchestrator.provider if self.available else None
+        model_name = self._orchestrator.model if self.available else None
+        record = {
+            "request_id": request_id,
+            "duration_ms": max(0, int(duration_ms)),
+            "provider": provider,
+            "model": model_name,
+            "outcome": outcome,
+            "error_code": error_code,
+            "http_status": http_status,
+        }
+        with self._request_lock:
+            self._last_request = record
+        logging.getLogger("jarvis.request").info(
+            "request_id=%s duration_ms=%d provider=%s model=%s outcome=%s error_code=%s http_status=%s",
+            request_id,
+            record["duration_ms"],
+            provider or "unavailable",
+            model_name or "unavailable",
+            outcome,
+            error_code or "none",
+            http_status or "none",
+        )
+
     def session_rows(self) -> list[dict[str, Any]]:
         if self._disk is None:
             return []
         return self._disk.listing()
+
+    def run_artifact(self, run_id: str, name: str) -> bytes:
+        """Read one explicitly allow-listed JSON artifact from a manifest-backed run."""
+        store = self._runs if self._runs is not None else RunStore()
+
+        def read_record() -> Any:
+            try:
+                return store.read(run_id)
+            except RunError:
+                settings = Settings.from_env(self._env)
+                web_root = settings.jarvis_web_runs or (
+                    settings.out_root / "web-runs"
+                    if settings.raw.get("AIOS_OUT_DIR")
+                    else settings.project_root / "out" / "web-runs"
+                )
+                if web_root == store.root:
+                    raise
+                return RunStore(web_root).read(run_id)
+
+        artifacts = {
+            "manifest": "manifest.json",
+            "validation": "validation/result.json",
+            "constraints": "validation/constraints_report.json",
+            "economics": "economics/result.json",
+            "npv-table": "economics/npv-table.json",
+            "submission": "submission/claimed_npv.json",
+            "physics": "validation/physics-report.json",
+        }
+        relative = artifacts.get(name)
+        if name == "opm-response":
+            record = read_record()
+            schedule_hash = record.manifest.get("schedule_hash")
+            if not isinstance(schedule_hash, str) or re.fullmatch(r"[0-9a-f]{64}", schedule_hash) is None:
+                raise RunError(f"run {run_id!r} has no valid recorded schedule hash for its OPM response")
+            path = record.directory / "observation" / schedule_hash / "response.json"
+            max_bytes = 16 * 1024 * 1024
+        elif relative is None:
+            raise RunError(f"run artifact {name!r} is not an allowed source")
+        else:
+            record = read_record()
+            if name == "physics":
+                candidates = sorted((record.directory / "validation").glob("physics*.json"))
+                path = candidates[0] if candidates else record.directory / relative
+            else:
+                path = record.directory / relative
+            max_bytes = 4 * 1024 * 1024
+        if not path.resolve().is_relative_to(record.directory.resolve()):
+            raise RunError(f"run artifact {name!r} resolves outside its run directory")
+        if not path.is_file():
+            raise RunError(f"run {run_id!r} has no recorded {name} artifact")
+        content = path.read_bytes()
+        if len(content) > max_bytes:
+            raise RunError(f"run artifact {name} exceeds the {max_bytes // (1024 * 1024)} MiB read limit")
+        return content
 
     def session_events(self, session_id: str) -> list[dict[str, Any]]:
         if self._disk is None:
@@ -212,6 +368,8 @@ def console_context(payload: Mapping[str, Any]) -> ConsoleContext:
         step=int(step) if isinstance(step, int) else None,
         date=str(raw["date"]) if raw.get("date") else None,
         selected_well=str(raw["selected_well"]) if raw.get("selected_well") else None,
+        run_id=str(raw["run_id"]) if raw.get("run_id") else None,
+        context_version=str(raw["context_version"]) if raw.get("context_version") else None,
         workspace=str(raw["workspace"]) if raw.get("workspace") else None,
         view=str(raw["view"]) if raw.get("view") else None,
         lang=str(payload.get("lang") or "ru"),
@@ -235,6 +393,8 @@ def query_context(params: Mapping[str, list[str]]) -> ConsoleContext:
         step=step,
         date=first("date"),
         selected_well=first("well"),
+        run_id=first("run_id"),
+        context_version=first("context_version"),
         workspace=first("workspace"),
         view=first("view"),
         lang=first("lang") or "ru",

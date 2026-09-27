@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { isAblationFile } from '@/entities/ablation/validate';
 import { isGraphFile } from '@/entities/graph/validate';
-import { isHierarchyIndexFile, isHierarchyStepFile } from '@/entities/hierarchy/validate';
+import { isHierarchyIndexFile } from '@/entities/hierarchy/validate';
 import { isMapLayerFile, isMapsIndexFile } from '@/entities/maps/validate';
 import { isNpvFile } from '@/entities/npv/validate';
 import { isScenariosFile } from '@/entities/scenarios/validate';
@@ -43,12 +43,7 @@ describe('shipped artifacts', () => {
     ['maps/PORO/12.json', isMapLayerFile],
     ['maps/PERMX/12.json', isMapLayerFile],
     ['maps/FIP_ZONE/12.json', isMapLayerFile],
-    ['hierarchy-index.json', isHierarchyIndexFile],
-    ['base/hierarchy-index.json', isHierarchyIndexFile],
-    ['policy-plan/hierarchy-index.json', isHierarchyIndexFile],
-    ['whatif-injection-cut/hierarchy-index.json', isHierarchyIndexFile],
-    ['hierarchy/0.json', isHierarchyStepFile],
-    ['base/hierarchy/0.json', isHierarchyStepFile]
+    ['whatif-injection-cut/hierarchy-index.json', isHierarchyIndexFile]
   ];
 
   it.each(cases)('accepts the shipped %s', (name, validate) => {
@@ -70,6 +65,16 @@ describe('shipped artifacts', () => {
     });
 
   const VALIDATED = new Set(cases.map(([name]) => name));
+
+  // These runs intentionally have no recorded hierarchy. Re-running a policy
+  // to create one would invent decision evidence, so the UI must handle absence.
+  const OPTIONAL_ABSENT = [
+    'hierarchy-index.json',
+    'base/hierarchy-index.json',
+    'policy-plan/hierarchy-index.json',
+    'hierarchy/0.json',
+    'base/hierarchy/0.json'
+  ];
 
   const UNVALIDATED = new Set([
     'bundles/base.json',
@@ -96,6 +101,10 @@ describe('shipped artifacts', () => {
   it('keeps the validated list pointing at files that exist', () => {
     const present = new Set(walk(root));
     expect([...VALIDATED].filter((name) => !present.has(name))).toEqual([]);
+  });
+
+  it('keeps unrecorded hierarchies absent instead of fabricating decision evidence', () => {
+    expect(OPTIONAL_ABSENT.filter((name) => existsSync(join(root, name)))).toEqual([]);
   });
 
   const SYNTHETIC_PROVENANCE = 'synthetic-demo';

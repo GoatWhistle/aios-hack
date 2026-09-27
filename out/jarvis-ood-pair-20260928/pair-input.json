@@ -1,0 +1,64 @@
+{
+  "source_run": "web-20260927-181807-7bd864e6",
+  "source_job_sha256": "f2f8bbf5dfcb2acfc638c931980dc32ef8c0aa69d6e50100a2e1e58694b88083",
+  "baseline_sha256": "5952c5b3a31a9ecd94f871734db492ca0cfb0e5138c0c56c1824378dd55f27e1",
+  "edited_sha256": "10e55f7a2d5e786a77e5ae4be5234b32a28e956613f185e68884dd9a445c14a8",
+  "budget": 10,
+  "worker": "backend.interfaces.cli.web_run_worker",
+  "cases": {
+    "baseline": {
+      "infrastructure": {
+        "bhp_injector_max_bar": 300,
+        "bhp_injector_max_bar_source": "organizer",
+        "bhp_producer_min_bar": 50,
+        "bhp_producer_min_bar_source": "organizer",
+        "compensation_enforcement": "diagnostic",
+        "compensation_max": 1.15,
+        "compensation_max_source": "diagnostic",
+        "compensation_min": 0.85,
+        "compensation_min_source": "diagnostic",
+        "compensation_scope": "field_and_groups",
+        "external_water_m3_per_day": 0,
+        "external_water_m3_per_day_source": "organizer",
+        "water_reinjection_fraction": 1,
+        "water_reinjection_fraction_source": "assumption",
+        "water_reinjection_lag_steps": 0,
+        "water_reinjection_lag_steps_source": "assumption"
+      },
+      "injection_limits": {},
+      "liquid_limits": {},
+      "oil_limits": {},
+      "production_floors": {},
+      "watercut_limits": {},
+      "well_outages": []
+    },
+    "edited": {
+      "injection_limits": {
+        "2015": 12000.0
+      },
+      "liquid_limits": {},
+      "production_floors": {},
+      "oil_limits": {},
+      "watercut_limits": {},
+      "well_outages": [],
+      "infrastructure": {
+        "bhp_injector_max_bar": 300,
+        "bhp_injector_max_bar_source": "organizer",
+        "bhp_producer_min_bar": 50,
+        "bhp_producer_min_bar_source": "organizer",
+        "compensation_enforcement": "diagnostic",
+        "compensation_max": 1.15,
+        "compensation_max_source": "diagnostic",
+        "compensation_min": 0.85,
+        "compensation_min_source": "diagnostic",
+        "compensation_scope": "field_and_groups",
+        "external_water_m3_per_day": 0,
+        "external_water_m3_per_day_source": "organizer",
+        "water_reinjection_fraction": 1,
+        "water_reinjection_fraction_source": "assumption",
+        "water_reinjection_lag_steps": 0,
+        "water_reinjection_lag_steps_source": "assumption"
+      }
+    }
+  }
+}

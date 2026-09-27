@@ -38,10 +38,14 @@ def rank_wells(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         raise ToolFailure(str(error)) from error
     values: list[tuple[str, float]] = []
     if by == "npv":
-        for well, row in index.npv_by_well.items():
+        for position, (well, row) in enumerate(index.npv_by_well.items()):
+            if position % 256 == 0:
+                context.check_cancelled()
             values.append((well, float(row["with_allocated_tax"])))
     else:
-        for row in index.timeline["steps"][step]["wells"]:
+        for position, row in enumerate(index.timeline["steps"][step]["wells"]):
+            if position % 256 == 0:
+                context.check_cancelled()
             value = row.get(by)
             if value is None:
                 continue
@@ -68,8 +72,13 @@ def rank_wells(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         "label": label,
         "unit": METRIC_UNITS[by],
         "order": order,
-        "step": step,
-        "date": index.dates[step],
+        # Per-well NPV is the recorded whole-horizon result, while operating
+        # metrics are snapshots at the selected control step. Do not attach a
+        # misleading step date to the horizon-wide ranking.
+        "period": "whole_horizon" if by == "npv" else "control_step",
+        "step": None if by == "npv" else step,
+        "date": None if by == "npv" else index.dates[step],
+        "total_count": len(values),
         "rows": rows,
     }
     provenance = index.provenance()

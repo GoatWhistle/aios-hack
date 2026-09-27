@@ -26,7 +26,7 @@ export interface LinkSpan {
 
 export type InlineSpan = TextSpan | StrongSpan | EmphasisSpan | CodeSpan | LinkSpan;
 
-const LINK = /^\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/;
+const LINK = /^\[([^\]]*)\]\(((?:https?:\/\/|\/(?!\/))[^\s)]+)\)/;
 const STRONG = /^(\*\*|__)([\s\S]+?)\1/;
 const EMPHASIS = /^(\*|_)([^*_\n][\s\S]*?)\1/;
 const CODE = /^(`+)([\s\S]*?)\1/;

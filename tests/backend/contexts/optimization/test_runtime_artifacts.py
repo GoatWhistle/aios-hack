@@ -89,6 +89,29 @@ def test_manifest_can_switch_only_the_economic_head(tmp_path) -> None:
     )
 
 
+def test_data_root_override_selects_its_production_manifest(tmp_path) -> None:
+    data = tmp_path / "external-data"
+    data.mkdir()
+    for name in ("trajectory.json", "context.json", "head.pt", "domain.pt"):
+        (data / name).write_bytes(b"artifact")
+    digest = hashlib.sha256(b"artifact").hexdigest()
+    (data / "surrogate-production.json").write_text(json.dumps({
+        "format": "aios.surrogate-production-pointer.v1",
+        "trajectory_checkpoint": "trajectory.json",
+        "feature_context": "context.json",
+        "npv_head": "head.pt",
+        "scenario_ood": {
+            "path": "domain.pt", "sha256": digest,
+            "feature_context_sha256": digest,
+        },
+    }))
+
+    result = resolve_runtime_artifacts({"AIOS_DATA_ROOT": str(data)})
+
+    assert result.checkpoint == data / "trajectory.json"
+    assert result.scenario_ood == data / "domain.pt"
+
+
 def test_manifest_target_provenance_mismatch_is_rejected(tmp_path) -> None:
     artifacts = RuntimeArtifacts(
         checkpoint=tmp_path / "trajectory.json",

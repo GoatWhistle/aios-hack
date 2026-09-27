@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Mapping
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactError, ScenarioIndex
@@ -32,10 +33,16 @@ def _event_type(previous: Mapping[str, Any], current: Mapping[str, Any]) -> str 
     return None
 
 
-def field_events_rows(index: ScenarioIndex, lang: str = "ru") -> list[dict[str, Any]]:
+def field_events_rows(
+    index: ScenarioIndex,
+    lang: str = "ru",
+    check_cancelled: Callable[[], None] | None = None,
+) -> list[dict[str, Any]]:
     steps = index.timeline["steps"]
     events: list[dict[str, Any]] = []
     for position in range(1, len(steps)):
+        if check_cancelled is not None:
+            check_cancelled()
         previous = {row["well"]: row for row in steps[position - 1]["wells"]}
         for current in steps[position]["wells"]:
             before = previous.get(current["well"])
@@ -121,12 +128,13 @@ def field_events(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         )
     wanted = arguments.get("types")
     selected = set(wanted) if wanted else None
-    rows = [
-        event
-        for event in field_events_rows(index, context.lang)
-        if from_step <= event["step"] <= to_step
-        and (selected is None or event["type"] in selected)
-    ]
+    rows = []
+    for event in field_events_rows(index, context.lang, context.check_cancelled):
+        context.check_cancelled()
+        if from_step <= event["step"] <= to_step and (
+            selected is None or event["type"] in selected
+        ):
+            rows.append(event)
     payload = {
         "from_step": from_step,
         "to_step": to_step,

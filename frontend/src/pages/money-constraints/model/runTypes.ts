@@ -27,6 +27,7 @@ export interface LiveRun {
   status: string;
   mode: string;
   message: string;
+  message_key?: string;
   budget: number;
   evaluations?: number;
   feasible_evaluations?: number;
@@ -36,10 +37,27 @@ export interface LiveRun {
   flow_seconds?: number | null;
   unseen_result?: UnseenResult;
   constraints?: ConstraintsDoc;
-  progress?: { step: number; total: number; date: string };
+  progress?: { step: number; total: number; date?: string; stage?: string };
   economics?: { measured_npv?: number | null; sound?: boolean };
   provenance?: Partial<RunManifest>;
   validation?: RunValidation;
+  case_request?: { request_id: string; request: string; scenario: string; base_constraints?: ConstraintsDoc };
+  alternative_request?: AlternativeRequest;
+  comparison_available?: boolean;
+  cancel_requested?: boolean;
+}
+
+export interface AlternativeRequest {
+  request_id: string;
+  source_run_id: string;
+  well: string;
+  control_step: number;
+  target_m3_per_day: number;
+  source_manifest_hash: string;
+  source_economics_hash: string;
+  source_schedule_hash: string;
+  alternative_schedule_hash: string;
+  constraints_hash: string;
 }
 
 export const provenanceOf = (run: LiveRun): RunManifest | undefined => {

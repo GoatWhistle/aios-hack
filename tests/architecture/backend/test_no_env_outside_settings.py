@@ -10,12 +10,15 @@ PRODUCTION = Path("backend")
 ALLOWED_ENV_READERS = {
     "backend/shared/settings.py",
     "backend/shared/paths.py",
+    "backend/shared/env_file.py",
 }
 
 KNOWN_ENV_DEBT = {
     "backend/contexts/assistant/infrastructure/llm/client.py",
     "backend/contexts/assistant/infrastructure/llm/provider.py",
     "backend/contexts/assistant/infrastructure/stt.py",
+    "backend/contexts/assistant/application/assistant_service.py",
+    "backend/contexts/assistant/infrastructure/session_store.py",
     "backend/contexts/optimization/domain/gates/bhp_tolerance.py",
     "backend/contexts/optimization/domain/gates/ood_threshold.py",
     "backend/contexts/optimization/domain/gates/opm_budget.py",

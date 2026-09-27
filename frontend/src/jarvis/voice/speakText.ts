@@ -50,6 +50,7 @@ export const speechSynthesisSupported = (): boolean =>
 export const fetchSpeech = async (
   text: string,
   lang: string,
+  signal?: AbortSignal,
   fetchImpl?: typeof fetch
 ): Promise<ArrayBuffer | null> => {
   const call = fetchImpl ?? fetch;
@@ -57,7 +58,8 @@ export const fetchSpeech = async (
     const response = await call(SPEAK_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, lang })
+      body: JSON.stringify({ text, lang }),
+      ...(signal === undefined ? {} : { signal })
     });
     if (!response.ok) {
       return null;

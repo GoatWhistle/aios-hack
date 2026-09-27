@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from types import SimpleNamespace
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
 from backend.contexts.assistant.application.tools import run_tool
 from backend.contexts.assistant.application.tools.registry import ToolInputError
+from backend.contexts.assistant.application.tools.schemas.wells import MAX_SERIES_STEP
 from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
@@ -27,6 +29,8 @@ def test_well_snapshot_reads_real_row(store: ArtifactStore) -> None:
     assert card.payload["date"] == "2015-01-01"
     assert card.payload["role"] in ("PROD", "INJ", "NONE")
     assert card.payload["npv"] == pytest.approx(-20491675.0, abs=1.0)
+    assert card.payload["npv_provenance"] == "model-z-base-run"
+    assert card.payload["npv_source_run_id"]
     assert len(card.payload["spark"]) == 24
     assert card.provenance == "model-z-base-run"
 
@@ -68,23 +72,58 @@ def test_well_series_window_and_unit(store: ArtifactStore) -> None:
     card = run_tool(
         "well_series",
         make(store),
-        {"well": "13", "metric": "watercut", "from_step": 70, "to_step": 96},
+        {"well": "13", "metric": "watercut", "from_step": 70, "to_step": 96, "window": [72, 80]},
     )
     assert card.type == "series"
     assert card.payload["unit"] == "fraction"
     assert len(card.payload["rows"]) == 27
     assert card.payload["rows"][0]["step"] == 70
     assert card.payload["rows"][-1]["date"] == "2015-01-01"
+    assert card.payload["window"] == [72, 80]
+
+
+def test_default_well_series_is_bounded_by_the_tool_horizon(
+    store: ArtifactStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    future_index = SimpleNamespace(
+        scenario="future-long-run",
+        dates=tuple(f"step-{step}" for step in range(500)),
+        step_count=lambda: 500,
+        require_well=lambda _well: SimpleNamespace(
+            steps={step: {"bhp": float(step)} for step in range(500)}
+        ),
+        provenance=lambda: "test",
+    )
+    monkeypatch.setattr(ToolContext, "index", lambda _context: future_index)
+    card = run_tool("well_series", make(store), {"well": "13", "metric": "bhp"})
+    rows = card.payload["rows"]
+
+    assert len(rows) <= MAX_SERIES_STEP + 1
+    assert rows[-1]["step"] <= MAX_SERIES_STEP
+
+
+@pytest.mark.parametrize("window", [[70], [70, 80, 90]])
+def test_well_series_window_requires_two_indices(store: ArtifactStore, window: list[int]) -> None:
+    with pytest.raises(ToolInputError, match="items"):
+        run_tool("well_series", make(store), {"well": "13", "metric": "bhp", "window": window})
+
+
+@pytest.mark.parametrize("window", [[69, 80], [80, 70], [90, 97]])
+def test_well_series_window_must_fit_requested_interval(store: ArtifactStore, window: list[int]) -> None:
+    with pytest.raises(ToolFailure, match="must fit inside"):
+        run_tool("well_series", make(store), {
+            "well": "13", "metric": "bhp", "from_step": 70, "to_step": 96, "window": window
+        })
 
 
 def test_well_series_rejects_interval_outside_horizon(store: ArtifactStore) -> None:
-    with pytest.raises(ToolFailure) as error:
+    with pytest.raises(ToolInputError) as error:
         run_tool(
             "well_series",
             make(store),
             {"well": "13", "metric": "bhp", "from_step": 0, "to_step": 900},
         )
-    assert "does not fit the horizon" in str(error.value)
+    assert "above the maximum" in str(error.value)
 
 
 def test_well_series_rejects_unknown_metric(store: ArtifactStore) -> None:

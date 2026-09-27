@@ -4,7 +4,7 @@
     {
       "id": "console",
       "kind": "ui",
-      "doc": "ARCHITECTURE.md#jarvis",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "route": {
         "workspace": "overview",
         "view": "fund"
@@ -14,117 +14,120 @@
         "frontend/src/pages",
         "frontend/src/features",
         "frontend/src/entities",
-        "frontend/src/shared"
+        "frontend/src/shared",
+        "frontend/src/jarvis"
       ]
     },
     {
       "id": "jarvis",
       "kind": "service",
-      "doc": "JARVIS.md#10",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "files": [
-        "backend/application/jarvis",
-        "backend/presentation/api",
+        "backend/contexts/assistant",
+        "backend/interfaces/http/assistant",
         "frontend/src/jarvis"
       ]
     },
     {
       "id": "web",
       "kind": "infra",
-      "doc": "ARCHITECTURE.md#service",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "files": [
-        "backend/presentation/cli/web.py",
-        "backend/presentation/api/proxy.py"
+        "backend/interfaces/cli/web.py",
+        "backend/interfaces/http/console/proxy.py",
+        "frontend/src"
       ]
     },
     {
       "id": "jarvis-service",
       "kind": "service",
-      "doc": "ARCHITECTURE.md#service",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "files": [
-        "backend/presentation/api",
-        "backend/presentation/cli/jarvis.py"
+        "backend/interfaces/http/assistant",
+        "backend/interfaces/cli/jarvis.py"
       ]
     },
     {
       "id": "llm",
       "kind": "infra",
-      "doc": "ARCHITECTURE.md#environment",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "files": [
-        "backend/infrastructure/llm"
+        "backend/contexts/assistant/infrastructure/llm"
       ]
     },
     {
       "id": "search",
       "kind": "domain",
-      "doc": "ARCHITECTURE.md#run-command",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "files": [
-        "backend/application/optimization"
+        "backend/contexts/optimization/application",
+        "backend/contexts/optimization/domain"
       ]
     },
     {
       "id": "surrogate",
       "kind": "domain",
-      "doc": "SURROGATE_DEFENSE.md",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "files": [
-        "backend/ml/surrogate"
+        "backend/contexts/surrogate"
       ]
     },
     {
       "id": "policy",
       "kind": "domain",
-      "doc": "ARCHITECTURE.md#source-tree",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "route": {
         "workspace": "decisions",
         "view": "council"
       },
       "files": [
-        "backend/domain/policy"
+        "backend/contexts/policy"
       ]
     },
     {
       "id": "physics",
       "kind": "domain",
-      "doc": "ANSWERS.md",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "route": {
         "workspace": "money",
         "view": "comparison"
       },
       "files": [
-        "backend/ml/surrogate/physics_checks.py",
-        "backend/presentation/ui_export/physics_view.py"
+        "backend/contexts/robustness",
+        "backend/contexts/simulation/application"
       ]
     },
     {
       "id": "economics",
       "kind": "domain",
-      "doc": "CLAUDE.md",
+      "doc": "knowledge/docs/NPV_METHODOLOGY.md",
       "route": {
         "workspace": "money",
         "view": "rank"
       },
       "files": [
-        "backend/domain/economics"
+        "backend/contexts/economics"
       ]
     },
     {
       "id": "opm",
       "kind": "infra",
-      "doc": "ARCHITECTURE.md#run-command",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "files": [
-        "backend/infrastructure/opm"
+        "backend/contexts/simulation"
       ]
     },
     {
       "id": "deck",
       "kind": "data",
-      "doc": "docs/TASK.md",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "route": {
         "workspace": "field",
         "view": "maps"
       },
       "files": [
-        "data",
-        "backend/infrastructure/opm"
+        "backend/contexts/reservoir",
+        "data"
       ]
     },
     {
@@ -137,49 +140,48 @@
       },
       "files": [
         "config",
-        "backend/application/cases.py"
+        "backend/contexts/constraints"
       ]
     },
     {
       "id": "runs",
       "kind": "data",
-      "doc": "ARCHITECTURE.md#run-command",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "route": {
         "workspace": "money",
         "view": "comparison"
       },
       "files": [
-        "out/runs",
-        "out/web-runs",
-        "backend/application/runs"
+        "backend/contexts/runs",
+        "backend/interfaces/cli/run.py"
       ]
     },
     {
       "id": "submission",
       "kind": "data",
-      "doc": "SUBMISSION.md",
+      "doc": "knowledge/docs/CURRENT_SYSTEM.md",
       "route": {
         "workspace": "money",
         "view": "comparison"
       },
       "files": [
-        "out/runs",
-        "config/opm-champion.json"
+        "backend/contexts/runs/application/workflow.py",
+        "backend/interfaces/cli/run.py"
       ]
     },
     {
       "id": "webdata",
       "kind": "data",
-      "doc": "ARCHITECTURE.md#source-tree",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "files": [
-        "backend/presentation/ui_export",
+        "backend/contexts/showcase",
         "frontend/public/data"
       ]
     },
     {
       "id": "knowledge",
       "kind": "doc",
-      "doc": "JARVIS.md#11",
+      "doc": "knowledge/docs/JARVIS_USER_GUIDE.md",
       "files": [
         "frontend/public/jarvis/knowledge"
       ]
@@ -187,13 +189,12 @@
     {
       "id": "docs",
       "kind": "doc",
-      "doc": "JARVIS_V2.md#41",
+      "doc": "knowledge/docs/SOURCE_POLICY.md",
       "files": [
-        "docs",
+        "frontend/public/jarvis/knowledge/docs",
         "ARCHITECTURE.md",
-        "JARVIS.md",
-        "FAQ.md",
-        "ANSWERS.md"
+        "PROJECT_CONTEXT.md",
+        "JARVIS_CONTEXT.md"
       ]
     }
   ],

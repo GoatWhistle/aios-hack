@@ -14,19 +14,27 @@ import { PatternCard } from '@/jarvis/cards/PatternCard/PatternCard';
 import { PhysicsCard } from '@/jarvis/cards/PhysicsCard/PhysicsCard';
 import { RunCard } from '@/jarvis/cards/RunCard/RunCard';
 import { RunListCard } from '@/jarvis/cards/RunListCard/RunListCard';
+import { RunStatusCard } from '@/jarvis/cards/RunStatusCard/RunStatusCard';
 import { StatusBoardCard } from '@/jarvis/cards/StatusBoardCard/StatusBoardCard';
+import { SubmissionCard } from '@/jarvis/cards/SubmissionCard/SubmissionCard';
 import { SystemMapCard } from '@/jarvis/cards/SystemMapCard/SystemMapCard';
 import { RuleCard } from '@/jarvis/cards/RuleCard/RuleCard';
 import { SeriesCard } from '@/jarvis/cards/SeriesCard/SeriesCard';
 import { WellCard } from '@/jarvis/cards/WellCard/WellCard';
 import { WellListCard } from '@/jarvis/cards/WellListCard/WellListCard';
+import { WellComparisonCard } from '@/jarvis/cards/WellComparisonCard/WellComparisonCard';
+import { RunProposalCard } from '@/jarvis/cards/RunProposalCard/RunProposalCard';
 
 interface CardBodyProps {
   card: JarvisCard;
   onOpen: (action: ConsoleAction) => void;
+  briefingLoading?: boolean;
 }
 
-export const CardBody = ({ card, onOpen }: CardBodyProps) => {
+export const CardBody = ({ card, onOpen, briefingLoading = false }: CardBodyProps) => {
+  if (card.type === 'case-proposal' || card.type === 'alternative-proposal') {
+    return <RunProposalCard type={card.type} payload={card.payload} onOpen={onOpen} />;
+  }
   if (card.type === 'metric') {
     return <MetricCard payload={card.payload} />;
   }
@@ -36,6 +44,9 @@ export const CardBody = ({ card, onOpen }: CardBodyProps) => {
   if (card.type === 'well-list') {
     return <WellListCard payload={card.payload} />;
   }
+  if (card.type === 'well-comparison') {
+    return <WellComparisonCard payload={card.payload} />;
+  }
   if (card.type === 'series') {
     return <SeriesCard payload={card.payload} />;
   }
@@ -43,10 +54,10 @@ export const CardBody = ({ card, onOpen }: CardBodyProps) => {
     return <FieldMapCard payload={card.payload} scenario={card.action?.scenario ?? null} />;
   }
   if (card.type === 'rule') {
-    return <RuleCard payload={card.payload} />;
+    return <RuleCard payload={card.payload} action={card.action} onOpen={onOpen} />;
   }
   if (card.type === 'compare') {
-    return <CompareCard payload={card.payload} />;
+    return <CompareCard payload={card.payload} action={card.action} onOpen={onOpen} />;
   }
   if (card.type === 'event-strip') {
     return <EventStripCard payload={card.payload} />;
@@ -67,10 +78,16 @@ export const CardBody = ({ card, onOpen }: CardBodyProps) => {
     return <SystemMapCard payload={card.payload} onOpen={onOpen} />;
   }
   if (card.type === 'status-board') {
-    return <StatusBoardCard payload={card.payload} />;
+    return <StatusBoardCard payload={card.payload} onOpen={onOpen} loading={briefingLoading} />;
   }
   if (card.type === 'run-list') {
     return <RunListCard payload={card.payload} />;
+  }
+  if (card.type === 'run-status') {
+    return <RunStatusCard payload={card.payload} onOpen={onOpen} />;
+  }
+  if (card.type === 'submission') {
+    return <SubmissionCard payload={card.payload} />;
   }
   if (card.type === 'run') {
     return <RunCard payload={card.payload} />;

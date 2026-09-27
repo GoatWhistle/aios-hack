@@ -26,8 +26,13 @@ export const Card = ({ card, expanded, onToggle, onOpenInConsole, children }: Ca
     >
       <header className="jarvis-card-head">
         <h3 className="jarvis-card-title">{card.title}</h3>
-        <span className="jarvis-card-chip" data-kind={kind} title={t(provenanceTitleKey(kind))}>
-          {card.provenance}
+        <span
+          className="jarvis-card-chip"
+          data-kind={kind}
+          title={card.provenance}
+          aria-label={`${t(provenanceTitleKey(kind))}: ${card.provenance}`}
+        >
+          {t(`jarvis-cards.provenanceKind.${kind}`)}
         </span>
       </header>
       <div className="jarvis-card-body">{children}</div>
@@ -37,7 +42,7 @@ export const Card = ({ card, expanded, onToggle, onOpenInConsole, children }: Ca
         </button>
         {card.action === undefined ? null : (
           <button type="button" className="jarvis-card-open" onClick={onOpenInConsole}>
-            {t('jarvis-cards.openInConsole')}
+            {card.action.companion_only ? t('jarvis-cards.openBesideConsole') : t('jarvis-cards.openInConsole')}
           </button>
         )}
       </footer>

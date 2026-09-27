@@ -189,6 +189,11 @@
   color: var(--color-text-muted);
 }
 
+.jarvis-rail-preview-context {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .jarvis-rail-thread-path,
   .jarvis-rail-bead:last-child .jarvis-rail-dot {

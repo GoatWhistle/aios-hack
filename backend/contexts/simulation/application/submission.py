@@ -111,6 +111,7 @@ def _run(
     deck = emitter.emit(schedule, deck_dir)
 
     base_runner = OpmRunner(work_root / "runs")
+    image_reference = base_runner.image_reference().image
     runner = (
         CachingOpmRunner(base_runner, RunCache(work_root / "cache")) if use_cache else base_runner
     )
@@ -126,6 +127,7 @@ def _run(
         wallclock_seconds=result.wallclock_seconds,
         message=result.message,
         content_hash_opm=deck.content_hash_opm,
+        image_reference=image_reference,
     )
 
     if opm_run.status is not RunStatus.OK:

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ConstraintsDoc } from '@/entities/scenarios/types';
-import type { LiveRun } from '@/pages/money-constraints/model/runTypes';
+import type { AlternativeRequest, LiveRun } from '@/pages/money-constraints/model/runTypes';
 
 const POLL_MS = 3000;
 const RUNS_URL = '/api/runs';
@@ -12,7 +12,13 @@ interface LiveRunsState {
   error: string;
   budget: number;
   setBudget: (budget: number) => void;
-  start: (runId?: string) => Promise<void>;
+  start: (
+    runId?: string,
+    searchConstraints?: ConstraintsDoc,
+    caseRequest?: { request_id: string; request: string; scenario: string; base_constraints: ConstraintsDoc }
+  ) => Promise<void>;
+  startAlternative: (alternativeRequest: AlternativeRequest) => Promise<void>;
+  cancel: (runId: string) => Promise<void>;
 }
 
 interface LiveRunsOptions {
@@ -63,13 +69,22 @@ export const useLiveRuns = ({
   }, [serverDown]);
 
   const start = useCallback(
-    async (runId?: string): Promise<void> => {
+    async (
+      runId?: string,
+      searchConstraints?: ConstraintsDoc,
+      caseRequest?: { request_id: string; request: string; scenario: string; base_constraints: ConstraintsDoc }
+    ): Promise<void> => {
       setSending(true);
       setError('');
       try {
         const body =
           runId === undefined
-            ? { mode: 'search', constraints: document, budget }
+            ? {
+                mode: 'search',
+                constraints: searchConstraints ?? document,
+                budget,
+                ...(caseRequest === undefined ? {} : { case_request: caseRequest })
+              }
             : { mode: 'verify', run_id: runId };
         const response = await fetch(RUNS_URL, {
           method: 'POST',
@@ -93,6 +108,43 @@ export const useLiveRuns = ({
     [document, budget, startFailed, serverDown]
   );
 
+  const cancel = useCallback(async (runId: string): Promise<void> => {
+    setSending(true);
+    setError('');
+    try {
+      const response = await fetch(`${RUNS_URL}/${encodeURIComponent(runId)}`, { method: 'DELETE' });
+      const result = (await response.json()) as LiveRun & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? startFailed);
+      setRuns((current) => current.map((run) => run.run_id === runId ? { ...run, ...result } : run));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : serverDown);
+    } finally {
+      setSending(false);
+    }
+  }, [startFailed, serverDown]);
+
+  const startAlternative = useCallback(async (alternativeRequest: AlternativeRequest): Promise<void> => {
+    setSending(true);
+    setError('');
+    try {
+      const response = await fetch(RUNS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'alternative', alternative_request: alternativeRequest })
+      });
+      const result = (await response.json()) as LiveRun & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? startFailed);
+      setRuns((current) => [
+        { ...current.find((run) => run.run_id === result.run_id), ...result },
+        ...current.filter((run) => run.run_id !== result.run_id)
+      ]);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : serverDown);
+    } finally {
+      setSending(false);
+    }
+  }, [startFailed, serverDown]);
+
   return {
     runs,
     available,
@@ -100,6 +152,8 @@ export const useLiveRuns = ({
     error,
     budget,
     setBudget,
-    start
+    start,
+    startAlternative,
+    cancel
   };
 };

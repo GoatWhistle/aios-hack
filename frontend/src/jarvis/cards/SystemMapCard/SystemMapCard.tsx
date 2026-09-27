@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { readSystemMap } from '@/jarvis/cards/payloads';
+import { systemMapKindLabel } from '@/jarvis/cards/lib/systemMapKindLabel';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import { VIEW_H, VIEW_W, edgeLine, placeNodes } from '@/jarvis/cards/lib/systemMapLayout';
 import './SystemMapCard.css';
@@ -100,7 +101,7 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
       {node === null ? null : (
         <div className="jarvis-map-detail">
           <p className="jarvis-map-detail-title">{node.label}</p>
-          <p className="jarvis-map-detail-kind">{node.kind}</p>
+          <p className="jarvis-map-detail-kind">{systemMapKindLabel(node.kind, t)}</p>
           <p className="jarvis-map-detail-summary">{node.summary}</p>
           {node.files.length === 0 ? null : (
             <p className="jarvis-map-detail-files">{node.files.join(' · ')}</p>

@@ -1,0 +1,61 @@
+.jarvis-well-comparison {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.jarvis-well-comparison-context,
+.jarvis-well-comparison-note p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.jarvis-well-comparison-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.jarvis-well-comparison-side,
+.jarvis-well-comparison-note {
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.jarvis-well-comparison-side h4 {
+  margin: 0 0 var(--space-2);
+}
+
+.jarvis-well-comparison-side p {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+  font-size: var(--font-size-xs);
+}
+
+.jarvis-well-comparison-side p span {
+  color: var(--color-text-muted);
+}
+
+.jarvis-well-comparison-side p strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.jarvis-well-comparison-note {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.jarvis-well-comparison-note small {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 42rem) {
+  .jarvis-well-comparison-columns {
+    grid-template-columns: 1fr;
+  }
+}

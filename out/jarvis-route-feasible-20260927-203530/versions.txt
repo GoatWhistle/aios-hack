@@ -1,0 +1,5 @@
+Python 3.14.2
+v26.6.0
+Docker version 29.0.1, build eedd969
+Python 3.12.7
+frontend package.json version: 0.1.0

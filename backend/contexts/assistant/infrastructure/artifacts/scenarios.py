@@ -19,6 +19,7 @@ SCENARIO_FILES: tuple[str, ...] = (
     "npv",
     "graph",
     "hierarchy-index",
+    "hierarchy",
     "ablation",
     "trace",
 )
@@ -144,7 +145,10 @@ def _read_hierarchy(directory: Path) -> Mapping[str, Any]:
     index = directory / "hierarchy-index.json"
     if index.is_file():
         return _LazyHierarchy(directory, _read_json(index))
-    return _read_json(directory / "hierarchy.json")
+    legacy = directory / "hierarchy.json"
+    if legacy.is_file():
+        return _read_json(legacy)
+    return {"meta": {"available": False, "provenance": "unavailable"}, "steps": []}
 
 
 def _read_json(path: Path) -> Mapping[str, Any]:
@@ -281,4 +285,3 @@ class ArtifactStore:
         )
         self._cache[name] = (stamp, index)
         return index
-

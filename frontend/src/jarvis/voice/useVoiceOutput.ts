@@ -50,14 +50,23 @@ export const useVoiceOutput = ({
   const spoken = useRef(onSpoken);
   const context = useRef<AudioContext | null>(null);
   const source = useRef<AudioBufferSourceNode | null>(null);
+  const request = useRef<AbortController | null>(null);
   const raf = useRef(0);
+  const generation = useRef(0);
   level.current = onLevel;
   spoken.current = onSpoken;
 
   const stop = useCallback(() => {
+    generation.current += 1;
+    request.current?.abort();
+    request.current = null;
     cancelAnimationFrame(raf.current);
     raf.current = 0;
-    source.current?.stop();
+    try {
+      source.current?.stop();
+    } catch {
+      // The source may have ended between the UI event and this call.
+    }
     source.current = null;
     if (speechSynthesisSupported()) {
       window.speechSynthesis.cancel();
@@ -67,8 +76,12 @@ export const useVoiceOutput = ({
   }, []);
 
   const fallback = useCallback(
-    (phrase: string) => {
-      if (!speechSynthesisSupported()) {
+    (phrase: string, token: number) => {
+      if (!speechSynthesisSupported() || generation.current !== token) {
+        if (generation.current === token) {
+          setSpeaking(false);
+          level.current(0);
+        }
         return;
       }
       const utterance = new SpeechSynthesisUtterance(phrase);
@@ -79,6 +92,7 @@ export const useVoiceOutput = ({
         utterance.voice = voice;
       }
       utterance.onend = () => {
+        if (generation.current !== token) return;
         setSpeaking(false);
         level.current(0);
       };
@@ -96,18 +110,24 @@ export const useVoiceOutput = ({
         return;
       }
       stop();
+      const token = ++generation.current;
+      setSpeaking(true);
       if (!ttsAvailable) {
-        fallback(clean);
+        fallback(clean, token);
         return;
       }
-      const bytes = await fetchSpeech(clean, lang);
+      const requestController = new AbortController();
+      request.current = requestController;
+      const bytes = await fetchSpeech(clean, lang, requestController.signal);
+      if (request.current === requestController) request.current = null;
+      if (generation.current !== token) return;
       if (bytes === null || bytes.byteLength === 0) {
-        fallback(clean);
+        fallback(clean, token);
         return;
       }
       const ctx = context.current ?? audioContextOf();
       if (ctx === null) {
-        fallback(clean);
+        fallback(clean, token);
         return;
       }
       context.current = ctx;
@@ -115,9 +135,10 @@ export const useVoiceOutput = ({
       try {
         buffer = await ctx.decodeAudioData(bytes.slice(0));
       } catch {
-        fallback(clean);
+        fallback(clean, token);
         return;
       }
+      if (generation.current !== token) return;
       const node = ctx.createBufferSource();
       node.buffer = buffer;
       const analyser = ctx.createAnalyser();
@@ -131,6 +152,7 @@ export const useVoiceOutput = ({
         raf.current = requestAnimationFrame(tick);
       };
       node.onended = () => {
+        if (generation.current !== token) return;
         cancelAnimationFrame(raf.current);
         raf.current = 0;
         level.current(0);

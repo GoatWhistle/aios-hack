@@ -4,6 +4,7 @@ const GLYPHS: Record<CardType, string> = {
   metric: '◆',
   well: '●',
   'well-list': '≡',
+  'well-comparison': '↔',
   'field-map': '◈',
   series: '∿',
   rule: '§',
@@ -17,10 +18,14 @@ const GLYPHS: Record<CardType, string> = {
   'system-map': '⌘',
   'status-board': '◫',
   'run-list': '⋯',
+  'run-status': '✓',
+  submission: '⇧',
   run: '▶',
   constraints: '⌗',
   council: '⚖',
-  physics: 'Ω'
+  physics: 'Ω',
+  'case-proposal': '+',
+  'alternative-proposal': '↗'
 };
 
 export const GLYPH_LIMIT = 4;

@@ -48,6 +48,7 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     DynamicReport,
     validate_dynamic,
 )
+from backend.contexts.schedule.domain.validate.vocabulary import Violation, ViolationKind
 from backend.contexts.reservoir.infrastructure.opm_deck import (
     render_control_period_include,
     render_schedule_include,
@@ -97,6 +98,37 @@ def test_unsound_opm_result_is_rejected(tmp_path) -> None:
     assert result.sound is False
 
 
+def test_verification_persists_located_dynamic_violations(tmp_path) -> None:
+    violation = Violation(
+        ViolationKind.WATERCUT_LIMIT_EXCEEDED, 4, "W1", 0.97, "water cut high"
+    )
+    dynamic_report = type("Report", (), {
+        "violations": (violation,),
+        "blocking_violations": (violation,),
+        "constraint_checks": (),
+    })()
+    verification = type("Verification", (), {
+        "sound": False,
+        "npv_methodology": None,
+        "dynamic_report": dynamic_report,
+        "opm_run": None,
+        "failed_identities": (),
+    })()
+
+    RunWorkflow(tmp_path / "runs").verify(
+        RunRequest("located-violation", sample_schedule()),
+        lambda _schedule, _opm: verification,
+    )
+
+    rows = json.loads(
+        (tmp_path / "runs/located-violation/validation/violations.json").read_text()
+    )
+    assert rows == [{
+        "kind": "WATERCUT_LIMIT_EXCEEDED", "control_step": 4, "well": "W1",
+        "region": None, "value": 0.97, "detail": "water cut high", "blocking": True,
+    }]
+
+
 def test_full_passes_the_schedule_returned_by_search_to_verification(tmp_path) -> None:
     schedule = sample_schedule()
     workflow = RunWorkflow(tmp_path / "runs")
@@ -121,6 +153,25 @@ def test_unsound_real_style_result_preserves_diagnostics_without_reading_npv(tmp
     assert result.verified_npv is None
     assert result.sound is False
     assert (tmp_path / 'rejected/validation/result.json').is_file()
+
+
+def test_verification_records_the_resolved_opm_image_from_the_actual_run(tmp_path):
+    class Verified:
+        sound = True
+        npv_methodology = 12.0
+        final_npv = None
+        dynamic_report = None
+        failed_identities = ()
+        opm_run = type("OpmRun", (), {
+            "deck_hash": "deck-hash",
+            "image_reference": "openporousmedia/opmreleases@sha256:" + "a" * 64,
+        })()
+
+    manifest = RunWorkflow(tmp_path / "runs").verify(
+        RunRequest("image-provenance", sample_schedule()), lambda *_: Verified()
+    )
+
+    assert manifest.opm_image == "openporousmedia/opmreleases@sha256:" + "a" * 64
 
 
 def sample_constraints() -> Constraints:
@@ -800,6 +851,41 @@ def test_constraints_report_marks_an_unlimited_water_source_as_waived(
     document = constraints_report_of(tmp_path / "runs" / "waived")
     statuses = {item["constraint"]: item["status"] for item in document["checks"]}
     assert statuses["infrastructure.water_supply"] == "waived"
+
+
+def test_verify_persists_dynamic_violation_locations(tmp_path) -> None:
+    from types import SimpleNamespace
+    from backend.contexts.schedule.domain.validate.vocabulary import Violation, ViolationKind
+
+    violation = Violation(
+        kind=ViolationKind.WATERCUT_LIMIT_EXCEEDED,
+        control_step=4,
+        well="W1",
+        value=0.97,
+        detail="water cut exceeds recorded limit",
+    )
+    dynamic = SimpleNamespace(
+        violations=(violation,),
+        blocking_violations=(violation,),
+        constraint_checks=(),
+    )
+    result = ReportedVerification(False, None, dynamic)
+    RunWorkflow(tmp_path / "runs").verify(
+        RunRequest("located-violations", sample_schedule()), lambda *_: result
+    )
+
+    document = json.loads(
+        (tmp_path / "runs" / "located-violations" / "validation" / "violations.json").read_text()
+    )
+    assert document == [{
+        "kind": "WATERCUT_LIMIT_EXCEEDED",
+        "control_step": 4,
+        "well": "W1",
+        "region": None,
+        "value": 0.97,
+        "detail": "water cut exceeds recorded limit",
+        "blocking": True,
+    }]
 
 
 def test_missing_dynamic_report_gives_a_reason_not_an_empty_list(tmp_path) -> None:

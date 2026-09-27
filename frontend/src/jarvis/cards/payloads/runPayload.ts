@@ -19,6 +19,7 @@ export const readRun = (payload: unknown): RunPayload | null => {
         kind: strOrNull(entry.kind) ?? '',
         detail: strOrNull(entry.detail) ?? ''
       })),
-    physics: readPhysics(payload.physics)
+    physics: readPhysics(payload.physics),
+    conclusion_markdown: strOrNull(payload.conclusion_markdown)
   };
 };

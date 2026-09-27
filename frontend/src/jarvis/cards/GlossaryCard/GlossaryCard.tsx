@@ -1,6 +1,7 @@
-import { useT } from '@/shared/i18n/I18nContext';
+import { useI18n } from '@/shared/i18n/I18nContext';
 import { readGlossary } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
+import { formatUnit } from '@/shared/lib/format';
 import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import './GlossaryCard.css';
 
@@ -10,7 +11,7 @@ interface GlossaryCardProps {
 }
 
 export const GlossaryCard = ({ payload, onOpen }: GlossaryCardProps) => {
-  const t = useT();
+  const { lang, t } = useI18n();
   const entry = readGlossary(payload);
   if (entry === null) {
     return <EmptyPayload />;
@@ -28,7 +29,7 @@ export const GlossaryCard = ({ payload, onOpen }: GlossaryCardProps) => {
       <p className="jarvis-glossary-meta">
         {entry.unit === null ? null : (
           <span>
-            {t('jarvis-cards.glossaryUnit')}: {entry.unit}
+            {t('jarvis-cards.glossaryUnit')}: {formatUnit(lang, entry.unit)}
           </span>
         )}
         {entry.source === null ? null : (

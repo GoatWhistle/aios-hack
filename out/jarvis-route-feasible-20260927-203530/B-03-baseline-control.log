@@ -1,0 +1,13 @@
+INFO backend.contexts.optimization.application.search_use_case: CMA-ES: 10 parameters, budget 10 evaluations, fixed-point cap in search 2, seed 20260816
+INFO backend.contexts.optimization.application.search_use_case: search finished in 0.5 min, evaluations 10, generations 1, stop: evaluation budget exhausted, feasible found: False
+INFO backend.contexts.optimization.application.baseline_search: local variant 1/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 2/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 3/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 4/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 5/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 6/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 7/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 8/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 9/10: feasible=False, NPV=None
+INFO backend.contexts.optimization.application.baseline_search: local variant 10/10: feasible=False, NPV=None
+error[optimization.search_run]: Neither the policy nor local modifications of the source schedule passed the condition and training-domain checks.

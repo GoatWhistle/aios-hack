@@ -16,15 +16,19 @@ from backend.contexts.assistant.infrastructure.artifacts import (
 
 
 def test_scenarios_listed(store: ArtifactStore) -> None:
-    assert set(store.scenarios()) == {"base", "policy-plan", "whatif-injection-cut"}
-    assert store.submitted() == "policy-plan"
+    assert set(store.scenarios()) == {"base", "whatif-injection-cut"}
+    assert store.submitted() is None
 
 
 def test_every_scenario_has_full_set(store: ArtifactStore, data_root: Path) -> None:
     for scenario in store.scenarios():
         directory = data_root / scenario
-        for name in SCENARIO_FILES:
+        for name in ("timeline", "npv", "graph", "ablation", "trace"):
             assert (directory / f"{name}.json").is_file()
+        hierarchy_files = (directory / "hierarchy-index.json", directory / "hierarchy.json")
+        assert any(path.is_file() for path in hierarchy_files) or store.scenario(scenario).hierarchy[
+            "meta"
+        ]["available"] is False
 
 
 def test_base_index_shape(store: ArtifactStore) -> None:
@@ -85,7 +89,9 @@ def test_reread_on_mtime_change(tmp_path: Path, data_root: Path) -> None:
     shutil.copy(data_root / "scenarios.json", root / "scenarios.json")
     shutil.copy(data_root / "wells.json", root / "wells.json")
     for name in SCENARIO_FILES:
-        shutil.copy(data_root / "base" / f"{name}.json", root / f"{name}.json")
+        source = data_root / "base" / f"{name}.json"
+        if source.is_file():
+            shutil.copy(source, root / f"{name}.json")
     store = ArtifactStore(root)
     first = store.scenario("base")
     assert first.step_count() == 225

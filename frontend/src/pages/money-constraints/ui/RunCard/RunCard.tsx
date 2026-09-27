@@ -23,7 +23,9 @@ interface RunCardProps {
   t: Translate;
   busy: boolean;
   onVerify: (runId: string) => void;
+  onCancel: (runId: string) => void;
   onLoadConditions?: (document: ConstraintsDoc) => void;
+  onUseAsAlternativeSource?: (runId: string) => void;
 }
 
 export const RunCard = ({
@@ -32,7 +34,9 @@ export const RunCard = ({
   t,
   busy,
   onVerify,
-  onLoadConditions
+  onCancel,
+  onLoadConditions,
+  onUseAsAlternativeSource
 }: RunCardProps) => {
   const provenance = provenanceOf(run);
   const predicted = formatMoney(lang, run.manifest?.predicted_npv);
@@ -50,18 +54,49 @@ export const RunCard = ({
   return (
     <article className="live-runs-panel">
       <h4>{t('runs.runTitle', { id: run.run_id.replace('web-', '') })}</h4>
+      {run.case_request !== undefined && (
+        <p className="scenarios-note">
+          {t('runs.originalRequest', { request: run.case_request.request, scenario: run.case_request.scenario })}
+        </p>
+      )}
+      {run.alternative_request !== undefined && (
+        <p className="scenarios-note">
+          {t('runs.alternativeOrigin', {
+            source: run.alternative_request.source_run_id,
+            well: run.alternative_request.well,
+            step: run.alternative_request.control_step,
+            target: run.alternative_request.target_m3_per_day
+          })}
+        </p>
+      )}
       <p role="status">{run.message}</p>
+      {run.status === 'running' && !run.cancel_requested && (
+        <button className="scenarios-button" type="button" onClick={() => onCancel(run.run_id)}>
+          {t('runs.cancel')}
+        </button>
+      )}
+      {run.mode === 'alternative' && run.comparison_available === true && (
+        <p>
+          <a href={`/api/runs/${encodeURIComponent(run.run_id)}/comparison`}>
+            {t('runs.alternativeResult')}
+          </a>
+        </p>
+      )}
       {run.progress !== undefined && (
         <div>
-          <p>
-            {t('runs.progress', {
-              step: run.progress.step,
-              total: run.progress.total,
-              date: run.progress.date
-            })}
-          </p>
+          <p>{run.progress.stage === undefined
+            ? t('runs.progress', {
+                step: run.progress.step,
+                total: run.progress.total,
+                date: run.progress.date ?? ''
+              })
+            : t('runs.searchProgress', {
+                stage: t(`runs.progress.${run.progress.stage}`),
+                step: run.progress.step,
+                total: run.progress.total
+              })}</p>
           <progress
-            aria-label={t('runs.progressLabel')}
+            aria-label={t(run.progress.stage === undefined ? 'runs.progressLabel' : 'runs.searchProgressLabel')}
             value={run.progress.step}
             max={run.progress.total}
           />
@@ -114,7 +149,7 @@ export const RunCard = ({
           </ul>
         </details>
       )}
-      {run.manifest !== undefined && (
+      {run.manifest !== undefined && run.mode !== 'alternative' && (
         <button
           className="scenarios-button"
           disabled={busy}
@@ -122,6 +157,15 @@ export const RunCard = ({
           type="button"
         >
           {t('runs.verify')}
+        </button>
+      )}
+      {run.manifest?.sound === true && run.mode !== 'alternative' && onUseAsAlternativeSource !== undefined && (
+        <button
+          className="scenarios-button"
+          type="button"
+          onClick={() => onUseAsAlternativeSource(run.run_id)}
+        >
+          {t('runs.useAsAlternativeSource')}
         </button>
       )}
       {run.unseen_result !== undefined && (

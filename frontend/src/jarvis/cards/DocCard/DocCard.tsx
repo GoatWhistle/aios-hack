@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useT } from '@/shared/i18n/I18nContext';
+import { formatNumber } from '@/shared/lib/format';
+import { useI18n } from '@/shared/i18n/I18nContext';
 import { Markdown } from '@/jarvis/markdown/Markdown/Markdown';
 import { readDoc } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
@@ -22,7 +23,7 @@ const HitSnippet = ({ snippet, terms }: { snippet: string; terms: readonly strin
 );
 
 export const DocCard = ({ payload }: { payload: unknown }) => {
-  const t = useT();
+  const { lang, t } = useI18n();
   const [open, setOpen] = useState<DocHit | null>(null);
   const doc = readDoc(payload);
   if (doc === null) {
@@ -41,9 +42,17 @@ export const DocCard = ({ payload }: { payload: unknown }) => {
         {doc.hits.map((hit, index) => (
           <li className="jarvis-doc-hit" key={`${hit.source}-${hit.anchor ?? index}`}>
             <p className="jarvis-doc-source">
-              <span className="jarvis-doc-file">{hit.source}</span>
+              {hit.url === undefined ? (
+                <span className="jarvis-doc-file">{hit.source}</span>
+              ) : (
+                <a className="jarvis-doc-file jarvis-doc-link" href={hit.url} target="_blank" rel="noreferrer">
+                  {hit.source}
+                </a>
+              )}
               {hit.score === null ? null : (
-                <span className="jarvis-doc-score">{hit.score.toFixed(2)}</span>
+                <span className="jarvis-doc-score" title={t('jarvis-cards.docScoreHelp')}>
+                  {t('jarvis-cards.docScoreLabel')}: {formatNumber(lang, hit.score, 2)}
+                </span>
               )}
             </p>
             {hit.heading.length === 0 ? null : (

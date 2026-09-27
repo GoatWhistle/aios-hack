@@ -7,6 +7,8 @@
   "desyncHint": "The timeline is at step {step}, while hierarchy.json has only {total}. Rebuild the scenario artifacts.",
   "empty": "Level trace is empty",
   "emptyHint": "hierarchy.json has no control steps.",
+  "unavailable": "No decision log was recorded",
+  "unavailableHint": "This scenario has no saved FIELD → GROUP → WELL hierarchy. Re-running the policy cannot recover the original reasons; result data and other recorded sources remain available.",
   "error": "Failed to load the level trace",
   "errorHint": "Rebuild the data: docker compose run --rm webdata.",
   "field.barLabel": "Limit split across groups",

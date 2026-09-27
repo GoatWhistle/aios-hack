@@ -76,10 +76,10 @@ cmd_web() {
 }
 
 cmd_jarvis() {
-    if [ -z "${OPENROUTER_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-        echo "ВНИМАНИЕ: ни OPENROUTER_API_KEY, ни ANTHROPIC_API_KEY не заданы." >&2
+    if [ -z "${OPENROUTER_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${JARVIS_API_KEY:-}" ]; then
+        echo "ВНИМАНИЕ: API-ключ провайдера Джарвиса не задан." >&2
         echo "Сервис поднимется, но /api/jarvis/health вернёт 503 no-api-key," >&2
-        echo "а фронт перейдёт в демо-режим на фикстурах." >&2
+        echo "а фронт покажет ошибку подключения." >&2
     fi
     if ! python -c "import edge_tts" >/dev/null 2>&1; then
         echo "ВНИМАНИЕ: пакет edge-tts не установлен." >&2

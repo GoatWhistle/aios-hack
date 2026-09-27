@@ -78,6 +78,19 @@ export const readStoredEvents = (value: unknown): JarvisEvent[] => {
   return collected;
 };
 
+export const briefingMatchesContext = (
+  events: readonly JarvisEvent[],
+  scenario: string,
+  step: number
+): boolean => {
+  const briefing = [...events].reverse().find((event) =>
+    event.type === 'scene' && event.scene_id === BRIEFING_SCENE_ID
+  );
+  return briefing === undefined || (briefing.type === 'scene'
+    && briefing.context.scenario === scenario
+    && briefing.context.step === step);
+};
+
 export const replayEvents = (
   events: readonly JarvisEvent[],
   from: ScenesState = emptyScenes
@@ -173,7 +186,11 @@ export const fetchBriefing = async (
     });
     if (!response.ok) {
       return briefingFailure(
-        response.status === 503 ? 'no-api-key' : 'upstream',
+        response.status === 503
+          ? 'no-api-key'
+          : response.status === 429
+            ? 'busy'
+            : 'upstream',
         scenario,
         step
       );

@@ -11,6 +11,7 @@ from typing import Sequence
 from backend.contexts.assistant.domain.ports import SessionRecordStore
 from backend.contexts.assistant.domain.session_events import restore_exchanges
 from backend.contexts.assistant.domain.console_context import ConsoleContext
+from backend.contexts.assistant.domain.cancellation import CancellationToken
 
 HISTORY_LIMIT = 6
 MAX_QUESTION_LENGTH = 600
@@ -39,6 +40,8 @@ class Session:
     console: ConsoleContext = field(default_factory=ConsoleContext)
     history: list[Exchange] = field(default_factory=list)
     scene_serial: int = 0
+    generation: int = 0
+    cancellation: CancellationToken = field(default_factory=CancellationToken)
     cancelled: bool = False
     running: bool = False
     summary_text: str = ""
@@ -97,8 +100,17 @@ class SessionStore:
                 "session_id is empty: Jarvis keeps the console context and the "
                 "recent exchanges per session and cannot serve a request without it"
             )
+        expired = self._disk is not None and self._disk.meta(session_id) is None
         with self._lock:
             session = self._sessions.get(session_id)
+            if (
+                expired
+                and session is not None
+                and session.restored
+                and (session.history or session.overflowed or session.summary_text)
+            ):
+                session = Session(session_id=session_id)
+                self._sessions[session_id] = session
             if session is None:
                 session = Session(session_id=session_id)
                 self._sessions[session_id] = session
@@ -132,33 +144,48 @@ class SessionStore:
             session.scene_serial += 1
         session.overflowed.clear()
 
-    def start(self, session_id: str, console: ConsoleContext) -> Session:
+    def start(self, session_id: str, console: ConsoleContext) -> tuple[Session, int]:
         session = self.get(session_id, console)
         with self._lock:
-            if session.running:
-                session.cancelled = True
+            previous_token = session.cancellation
+            cancel_previous = session.running
+            session.generation += 1
             session.cancelled = False
             session.running = True
-        return session
+            session.cancellation = CancellationToken()
+            generation = session.generation
+        if cancel_previous:
+            previous_token.cancel()
+        return session, generation
 
-    def finish(self, session_id: str) -> None:
+    def finish(self, session_id: str, generation: int | None = None) -> None:
         with self._lock:
             session = self._sessions.get(session_id)
-            if session is not None:
+            if session is not None and (
+                generation is None or session.generation == generation
+            ):
                 session.running = False
 
-    def cancel(self, session_id: str) -> bool:
+    def cancel(self, session_id: str, generation: int | None = None) -> bool:
         with self._lock:
             session = self._sessions.get(session_id)
-            if session is None:
+            if session is None or (
+                generation is not None and session.generation != generation
+            ):
                 return False
             session.cancelled = True
-            return True
+            token = session.cancellation
+        token.cancel()
+        return True
 
-    def is_cancelled(self, session_id: str) -> bool:
+    def is_cancelled(self, session_id: str, generation: int | None = None) -> bool:
         with self._lock:
             session = self._sessions.get(session_id)
-            return bool(session and session.cancelled)
+            return bool(
+                session is None
+                or session.cancelled
+                or (generation is not None and session.generation != generation)
+            )
 
     def count(self) -> int:
         if self._disk is not None:

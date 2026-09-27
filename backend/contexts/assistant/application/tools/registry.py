@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from backend.contexts.assistant.domain.errors import (
     ToolInputError,
 )
@@ -94,17 +96,36 @@ def _check(tool: str, field: str, rule: Mapping[str, Any], value: Any) -> Any:
             raise ToolInputError(
                 f"tool {tool}: field {field}={value!r} must be an integer"
             )
+        if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
+            raise ToolInputError(
+                f"tool {tool}: field {field}={value!r} must be a finite integer"
+            )
         return _bounded(tool, field, rule, int(value))
     if kind == "number":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ToolInputError(
                 f"tool {tool}: field {field}={value!r} must be a number"
             )
-        return _bounded(tool, field, rule, float(value))
+        number = float(value)
+        if not math.isfinite(number):
+            raise ToolInputError(
+                f"tool {tool}: field {field}={value!r} must be finite"
+            )
+        return _bounded(tool, field, rule, number)
     if kind == "array":
         if not isinstance(value, (list, tuple)):
             raise ToolInputError(
                 f"tool {tool}: field {field} must be an array"
+            )
+        minimum_items = rule.get("minItems")
+        maximum_items = rule.get("maxItems")
+        if minimum_items is not None and len(value) < minimum_items:
+            raise ToolInputError(
+                f"tool {tool}: field {field} needs at least {minimum_items} items"
+            )
+        if maximum_items is not None and len(value) > maximum_items:
+            raise ToolInputError(
+                f"tool {tool}: field {field} accepts at most {maximum_items} items"
             )
         item_rule = rule.get("items", {})
         return [_check(tool, field, item_rule, item) for item in value]

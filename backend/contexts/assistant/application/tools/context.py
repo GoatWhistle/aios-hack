@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import time
+
 from backend.contexts.assistant.domain.console_context import DEFAULT_LANG, ConsoleContext
 from backend.contexts.assistant.domain.errors import (
     ToolFailure,
 )
+from backend.contexts.assistant.domain.cancellation import CancellationToken
 
 from dataclasses import dataclass, field
 from typing import Any, Mapping
@@ -23,6 +26,14 @@ class ToolContext:
     runs: RunStore | None = None
     docs: Any = None
     system: Any = None
+    cancellation: CancellationToken | None = None
+    deadline: float | None = None
+
+    def check_cancelled(self) -> None:
+        if self.cancellation is not None and self.cancellation.cancelled:
+            raise ToolFailure("tool execution was cancelled")
+        if self.deadline is not None and time.monotonic() >= self.deadline:
+            raise TimeoutError("Jarvis exceeded the time budget while executing a tool")
 
     def run_store(self) -> RunStore:
         if self.runs is not None:

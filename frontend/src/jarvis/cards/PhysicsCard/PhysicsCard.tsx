@@ -1,6 +1,7 @@
 import { DASH } from '@/shared/lib/format';
 import { useT } from '@/shared/i18n/I18nContext';
 import { readPhysics } from '@/jarvis/cards/payloads';
+import { translationOrRaw } from '@/jarvis/cards/lib/translationFallback';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './PhysicsCard.css';
 
@@ -32,7 +33,9 @@ export const PhysicsCard = ({ payload }: { payload: unknown }) => {
         <ul className="jarvis-physics-checks">
           {physics.checks.map((check, index) => (
             <li key={`${check.id}-${index}`} data-status={check.status}>
-              <span className="jarvis-physics-check-id">{check.id}</span>
+              <span className="jarvis-physics-check-id" title={check.id}>
+                {translationOrRaw(`jarvis-cards.physicsCheck.${check.id}`, check.id, t)}
+              </span>
               {check.detail === null ? null : (
                 <span className="jarvis-physics-check-detail">{check.detail}</span>
               )}

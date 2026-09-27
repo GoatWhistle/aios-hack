@@ -2,7 +2,7 @@ import type { TimelineWellRow } from '@/entities/timeline/types';
 import { actualRate } from '@/entities';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { AskJarvis } from '@/features/ask-jarvis/ui';
-import { DASH, formatNumber, formatPercent } from '@/shared/lib/format';
+import { DASH, formatCalendarDate, formatPercent, formatQuantity } from '@/shared/lib/format';
 import { clamp } from '@/shared/lib/math/clamp';
 
 const TOOLTIP_WIDTH = 232;
@@ -24,6 +24,7 @@ interface NodeTooltipProps {
   box: TooltipBox;
   row: TimelineWellRow | undefined;
   step: number;
+  date: string | null;
 }
 
 export const tooltipStyle = (
@@ -37,7 +38,7 @@ export const tooltipStyle = (
   return { left, top: clamp(hover.y, 0, box.height) };
 };
 
-export const NodeTooltip = ({ hover, box, row, step }: NodeTooltipProps) => {
+export const NodeTooltip = ({ hover, box, row, step, date }: NodeTooltipProps) => {
   const { t, lang } = useI18n();
   const place = tooltipStyle(hover, box);
   const role =
@@ -52,7 +53,7 @@ export const NodeTooltip = ({ hover, box, row, step }: NodeTooltipProps) => {
         : row.operating_status === 'SHUT'
           ? t('projection.tip.status.shut')
           : t('projection.tip.status.open');
-  const rate = row === undefined ? DASH : formatNumber(lang, actualRate(row), 1);
+  const rate = row === undefined ? DASH : formatQuantity(lang, actualRate(row), 'm3/day', 1);
   const watercut =
     row === undefined || row.watercut === null ? DASH : formatPercent(lang, row.watercut);
 
@@ -64,6 +65,12 @@ export const NodeTooltip = ({ hover, box, row, step }: NodeTooltipProps) => {
       style={{ left: `${place.left}px`, top: `${place.top}px`, width: `${TOOLTIP_WIDTH}px` }}
     >
       <p className="projection-tooltip-well">{hover.well}</p>
+      <p className="projection-tooltip-context">
+        {t('projection.activeStep', {
+          step,
+          date: date === null ? DASH : formatCalendarDate(lang, date)
+        })}
+      </p>
       <dl className="projection-tooltip-facts">
         <div className="projection-tooltip-fact">
           <dt>{t('projection.tip.role')}</dt>

@@ -1,5 +1,6 @@
 export interface DocHit {
   source: string;
+  url?: string;
   heading: string;
   anchor: string | null;
   snippet: string;
@@ -48,6 +49,9 @@ export interface StatusAlert {
   well: string | null;
   severity: string | null;
   step: number | null;
+  date: string | null;
+  window: number[] | null;
+  source: string | null;
 }
 
 export interface StatusBoardPayload {
@@ -70,7 +74,15 @@ export interface StatusBoardPayload {
   step: number;
   date: string | null;
   data: string;
+  generated_at: string | null;
   alerts: StatusAlert[];
+  diagnostics: { recorded: boolean; reason: string | null };
+  violations: {
+    recorded: boolean;
+    run_id: string | null;
+    reason: string | null;
+    rows: { kind: string; control_step: number | null; well: string | null; region: number | null; detail: string; value: number | null; blocking: boolean }[];
+  };
 }
 
 export interface RunRow {
@@ -82,6 +94,10 @@ export interface RunRow {
   sound: boolean | null;
   strategy: string | null;
   seed: number | null;
+  scenario_role: string | null;
+  generation_reasons_status: string | null;
+  run_manifest_available: boolean | null;
+  availability_note: string | null;
 }
 
 export interface RunListPayload {
@@ -109,6 +125,7 @@ export interface RunPayload extends RunRow {
   has_submission: boolean;
   violations: { kind: string; detail: string }[];
   physics: PhysicsPayload | null;
+  conclusion_markdown: string | null;
 }
 
 export interface ConstraintRow {

@@ -1,5 +1,79 @@
 import { describe, expect, it } from 'vitest';
-import { DASH, formatNumber, formatPercent, formatStepDate } from '@/shared/lib/format/format';
+import { DASH, formatCalendarDate, formatNumber, formatPercent, formatQuantity, formatStepDate, formatTimestamp, formatUnit } from '@/shared/lib/format/format';
+
+describe('formatCalendarDate', () => {
+  it('uses a localized day, month, and year while preserving UTC dates', () => {
+    expect(formatCalendarDate('en', '2007-01-01')).toBe('Jan 1, 2007');
+    expect(formatCalendarDate('ru', '2007-01-01')).toContain('2007');
+    expect(formatCalendarDate('ru', '2007-01-01')).not.toBe('2007-01-01');
+  });
+
+  it('returns a dash for an invalid date', () => {
+    expect(formatCalendarDate('en', 'not-a-date')).toBe(DASH);
+  });
+});
+
+describe('formatTimestamp', () => {
+  it('formats date and time in a stable UTC timezone', () => {
+    expect(formatTimestamp('en', '2025-01-02T03:04:00Z')).toMatch(/Jan 2, 2025/);
+    expect(formatTimestamp('en', '2025-01-02T03:04:00Z')).toMatch(/3:04/);
+    expect(formatTimestamp('ru', '2025-01-02T03:04:00Z')).toContain('2025');
+  });
+
+  it('returns a dash for an invalid timestamp', () => {
+    expect(formatTimestamp('en', 'not-a-timestamp')).toBe(DASH);
+  });
+});
+
+describe('formatUnit', () => {
+  it('uses one localized display for flow rates across legacy spellings', () => {
+    for (const unit of ['m3/day', 'm³/day', 'm³/сут']) {
+      expect(formatUnit('ru', unit)).toBe('м³/сут');
+      expect(formatUnit('en', unit)).toBe('m³/day');
+    }
+  });
+
+  it('localizes common dimensionless, pressure, and count units', () => {
+    expect(formatUnit('ru', 'fraction')).toBe('доля');
+    expect(formatUnit('en', 'bar')).toBe('bar');
+    expect(formatUnit('ru', 'wells')).toBe('скважин');
+    expect(formatUnit('en', 'records')).toBe('records');
+  });
+
+  it('covers every unit emitted by Jarvis metrics, constraints, and comparison cards', () => {
+    const emittedUnits: Record<string, [string, string]> = {
+      RUB: ['руб.', 'RUB'],
+      'm3/day': ['м³/сут', 'm³/day'],
+      bar: ['бар', 'bar'],
+      fraction: ['доля', 'fraction'],
+      wells: ['скважин', 'wells'],
+      steps: ['шагов', 'steps'],
+      records: ['записей', 'records'],
+      kg: ['кг', 'kg'],
+      m3: ['м³', 'm³'],
+      'RUB/m3': ['руб./м³', 'RUB/m³'],
+      'RUB/t': ['руб./т', 'RUB/t'],
+      't/m3': ['т/м³', 't/m³'],
+      't/day': ['т/сут', 't/day'],
+      months: ['мес.', 'months'],
+      years: ['лет', 'years'],
+      coefficient: ['коэффициент', 'coefficient']
+    };
+    for (const [unit, [ru, en]] of Object.entries(emittedUnits)) {
+      expect(formatUnit('ru', unit), `Russian label for ${unit}`).toBe(ru);
+      expect(formatUnit('en', unit), `English label for ${unit}`).toBe(en);
+    }
+  });
+
+  it('localizes currency units for concise quantities', () => {
+    expect(formatQuantity('ru', 1250, 'RUB')).toMatch(/1 250 руб\./);
+    expect(formatQuantity('en', 1250, 'rub')).toBe('1,250 RUB');
+  });
+
+  it('preserves specialized units it does not recognize', () => {
+    expect(formatUnit('ru', 'kg/m³')).toBe('kg/m³');
+  });
+});
 
 describe('formatStepDate', () => {
   it('keeps the calendar month of a UTC midnight date', () => {

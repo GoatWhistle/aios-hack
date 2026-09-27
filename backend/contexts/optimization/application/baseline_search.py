@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from dataclasses import replace
 
 from backend.contexts.optimization.application.water_repair import (
     _repair_predicted_water_balance,
@@ -46,6 +48,8 @@ from backend.contexts.optimization.application.environment import (
     OutOfDomainScheduleError,
     PhysicallyImpossibleScheduleError,
 )
+from backend.contexts.surrogate.application.adapter import ResponseAdapter
+from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
 from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.schedule.domain.case_limits import YearlyProduction, apply_case_limits
 from backend.contexts.schedule.domain.validate import validate_static
@@ -87,11 +91,24 @@ def _search_theta(constraints) -> Theta:
 
 
 def _peak_step_production(env, evaluator):
+    featureizer = ScheduleFeatureizer()
+    adapter = ResponseAdapter()
+
     def forecast(schedule: Schedule) -> YearlyProduction:
-        response = evaluator(schedule).state.response
+        # A forecast is needed to trim the case *before* candidate gates run.
+        # Evaluating the unchanged reference through the full gate is invalid:
+        # its differential physics checks compare that schedule with itself.
+        model_input = replace(
+            featureizer.transform(schedule, env.feature_context.context),
+            lambda_edges=(),
+        )
+        output = env.model.predict(model_input).output
+        states, _ = adapter.adapt(
+            output, schedule, env.real_history, env.control_dates
+        )
         liquid_by_step: dict[int, float] = {}
         injection_by_step: dict[int, float] = {}
-        for state in response.state_at_date:
+        for state in states:
             control_step = state.deck_date_index - FIRST_CONTROL_DECK_DATE_INDEX - 1
             if control_step < 0:
                 continue
@@ -120,6 +137,7 @@ def _search_near_baseline(
     budget: int,
     provenance: dict[str, str],
     registry: "IncumbentRegistry | None" = None,
+    progress_callback: Callable[[str, int, int], None] | None = None,
 ) -> SearchOutcome:
     registry = IncumbentRegistry() if registry is None else registry
     tolerance = _bhp_tolerance_decision()
@@ -233,6 +251,8 @@ def _search_near_baseline(
             )
         )
         logger.info(f'local variant {index + 1}/{budget}: feasible={not violations}, NPV={npv}')
+        if progress_callback is not None:
+            progress_callback("fallback", index + 1, budget)
     diagnostics = read_json(SEARCH_DIAGNOSTICS)
     diagnostics['fallback_budget'] = budget
     diagnostics['evaluations'].extend(records)

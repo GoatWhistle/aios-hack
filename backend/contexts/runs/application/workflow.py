@@ -79,6 +79,9 @@ class RunWorkflow:
         observed_deck_hash = getattr(getattr(result, "opm_run", None), "deck_hash", None)
         if observed_deck_hash:
             fields["deck_hash"] = observed_deck_hash
+        observed_image = getattr(getattr(result, "opm_run", None), "image_reference", None)
+        if observed_image:
+            fields["opm_image"] = observed_image
         manifest = RunManifest(
             run_id=request.run_id,
             status=WorkflowStatus.VERIFIED if sound else WorkflowStatus.REJECTED,
@@ -111,6 +114,28 @@ class RunWorkflow:
                     getattr(result, "dynamic_report", None),
                     fields.get("constraints_hash"),
                 ),
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        dynamic_report = getattr(result, "dynamic_report", None)
+        violations = getattr(dynamic_report, "violations", ()) if dynamic_report is not None else ()
+        (run_dir / "validation" / "violations.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "kind": item.kind.value,
+                        "control_step": item.control_step,
+                        "well": item.well,
+                        "region": item.region,
+                        "value": item.value,
+                        "detail": item.detail,
+                        "blocking": item in getattr(dynamic_report, "blocking_violations", ()),
+                    }
+                    for item in violations
+                ],
                 ensure_ascii=False,
                 indent=2,
             )

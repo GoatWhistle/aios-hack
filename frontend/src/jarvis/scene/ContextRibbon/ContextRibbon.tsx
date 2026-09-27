@@ -7,9 +7,11 @@ interface ContextRibbonProps {
   speaking: boolean;
   onStop: () => void;
   onReadAll: () => void;
+  canRestorePrevious: boolean;
+  onRestorePrevious: () => void;
 }
 
-export const ContextRibbon = ({ speaking, onStop, onReadAll }: ContextRibbonProps) => {
+export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious, onRestorePrevious }: ContextRibbonProps) => {
   const { lang, t, toggleLang } = useI18n();
   const {
     askContext,
@@ -23,23 +25,30 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll }: ContextRibbonProp
     toggleConfirmVoice
   } = useJarvisVoice();
   const answer = scenes.scenes[scenes.activeIndex]?.answer ?? null;
+  const context = scenes.scenes[scenes.activeIndex]?.context ?? askContext;
 
   return (
     <header className="jarvis-ribbon" aria-label={t('jarvis-screen.contextLabel')}>
       <dl className="jarvis-ribbon-facts">
         <div>
           <dt>{t('jarvis-screen.contextScenario')}</dt>
-          <dd>{askContext.scenario}</dd>
+          <dd>{context.scenario}</dd>
         </div>
+        {context.run_id ? (
+          <div>
+            <dt>{t('jarvis-cards.runId')}</dt>
+            <dd>{context.run_id}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>{t('jarvis-screen.contextStep')}</dt>
           <dd>
-            {askContext.date.length === 0 ? DASH : formatStepDate(lang, askContext.date)}
+            {context.date.length === 0 ? DASH : formatStepDate(lang, context.date)}
           </dd>
         </div>
         <div>
           <dt>{t('jarvis-screen.contextWell')}</dt>
-          <dd>{askContext.selected_well ?? t('jarvis-screen.contextNoWell')}</dd>
+          <dd>{context.selected_well ?? t('jarvis-screen.contextNoWell')}</dd>
         </div>
       </dl>
       <ul className="jarvis-ribbon-chips" aria-label={t('jarvis-screen.capabilitiesLabel')}>
@@ -62,6 +71,14 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll }: ContextRibbonProp
         ) : null}
       </ul>
       <div className="jarvis-ribbon-controls">
+        <button
+          type="button"
+          className="jarvis-ribbon-button"
+          disabled={!canRestorePrevious}
+          onClick={onRestorePrevious}
+        >
+          {t('jarvis-screen.returnPreviousFocus')}
+        </button>
         {speaking ? (
           <button type="button" className="jarvis-ribbon-button" onClick={onStop}>
             {t('jarvis-voice.speakStop')}

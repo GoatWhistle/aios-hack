@@ -29,13 +29,19 @@ AVAILABILITY: Mapping[str, Availability] = {
 }
 
 
-def _trace_entries(index: ScenarioIndex) -> list[TraceEntry]:
+def _trace_entries(
+    index: ScenarioIndex, context: ToolContext | None = None
+) -> list[TraceEntry]:
     entries: list[TraceEntry] = []
+    visited = 0
     for well, by_step in index.trace.items():
         if well == "__meta__" or not isinstance(by_step, dict):
             continue
         for step, records in by_step.items():
             for record in records:
+                if context is not None and visited % 256 == 0:
+                    context.check_cancelled()
+                visited += 1
                 entries.append(
                     TraceEntry(
                         control_step=int(step),
@@ -100,7 +106,7 @@ def explain_decision(context: ToolContext, arguments: Mapping[str, Any]) -> Card
         index.require_step(step)
     except ArtifactError as error:
         raise ToolFailure(str(error)) from error
-    entries = _trace_entries(index)
+    entries = _trace_entries(index, context)
     if not entries:
         raise ToolFailure(
             f"scenario {index.scenario} carries no Trace records: there is "

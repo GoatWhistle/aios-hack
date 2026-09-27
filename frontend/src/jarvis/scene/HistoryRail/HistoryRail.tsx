@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Keyb
 import { useI18n } from '@/shared/i18n/I18nContext';
 import type { Scene } from '@/jarvis/model/scenes';
 import { beadTime, cropQuestion, glyphsOf } from '@/jarvis/scene/lib/cardGlyphs';
+import { formatStepDate } from '@/shared/lib/format';
 import { HistorySessions } from '@/jarvis/scene/HistorySessions/HistorySessions';
 import { HistoryThread } from '@/jarvis/scene/HistoryThread/HistoryThread';
 import './HistoryRail.css';
@@ -99,6 +100,14 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
           const active = index === activeIndex;
           const glyphs = glyphsOf(scene.cards.map((entry) => entry.card.type));
           const caption = (scene.caption ?? scene.captionDraft).split('\n')[0];
+          const contextDetails = [
+            scene.context.run_id
+              ? `${t('jarvis-cards.runId')}: ${scene.context.run_id}`
+              : null,
+            `${t('jarvis-screen.contextWell')}: ${scene.context.selected_well ?? t('jarvis-screen.contextNoWell')}`,
+            `${t('jarvis-screen.contextStep')} ${scene.context.step} · ${formatStepDate(lang, scene.context.date)}`,
+            `${t('jarvis-screen.contextScenario')}: ${scene.context.scenario}`
+          ].filter((value): value is string => value !== null).join(' · ');
           return (
             <li
               className="jarvis-rail-bead"
@@ -114,7 +123,10 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
                 type="button"
                 className="jarvis-rail-button"
                 tabIndex={-1}
-                aria-label={t('jarvis-rail.railBead', { question: scene.question })}
+                aria-label={t('jarvis-rail.railBead', {
+                  question: scene.question,
+                  context: contextDetails
+                })}
                 onClick={() => onSelect(index)}
                 onFocus={() => setHover(index)}
                 onBlur={() => setHover((value) => (value === index ? null : value))}
@@ -142,6 +154,7 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
                   {caption.length === 0 ? null : (
                     <span className="jarvis-rail-preview-caption">{caption}</span>
                   )}
+                  <span className="jarvis-rail-preview-context">{contextDetails}</span>
                 </span>
               ) : null}
             </li>

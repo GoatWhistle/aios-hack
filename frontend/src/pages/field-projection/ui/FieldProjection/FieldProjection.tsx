@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphFile } from '@/entities/graph/types';
 import type { WellsFile } from '@/entities/wells/types';
 import { useDataset } from '@/entities';
-import { useT } from '@/shared/i18n/I18nContext';
+import { useI18n } from '@/shared/i18n/I18nContext';
 import { useMorphRequest } from '@/shared/lib/morph';
 import { useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
+import { formatCalendarDate } from '@/shared/lib/format';
 import { formatWindowDate } from '@/entities/graph/model/graphModel';
 import { useSelectionHighlight } from '@/entities/wells/model/useSelectionHighlight';
 import { EdgeLayer } from '@/pages/field-projection/ui/EdgeLayer/EdgeLayer';
@@ -26,8 +27,11 @@ interface ReadyProps {
 }
 
 const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
-  const t = useT();
-  const { selectedWell, selectWell, stepIndex } = useTimeline();
+  const { t, lang } = useI18n();
+  const { timeline, selectedWell, selectWell, stepIndex } = useTimeline();
+  const selectedStep = timeline.status === 'ready'
+    ? timeline.data.steps[stepIndex] ?? null
+    : null;
   const morphRequest = useMorphRequest();
   const [pole, setPole] = useState<ProjectionPole>('graph');
   const [threshold, setThreshold] = useState<number | null>(null);
@@ -164,6 +168,14 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             : [])
         ]}
       />
+      <p className="field-projection-context" data-testid="field-projection-context">
+        {selectedStep === null
+          ? t('projection.stepUnavailable')
+          : t('projection.activeStep', {
+              step: selectedStep.control_step,
+              date: formatCalendarDate(lang, selectedStep.date)
+            })}
+      </p>
       <div className="field-projection-canvas" ref={canvasRef}>
         <svg
           ref={svgRef}
@@ -203,7 +215,8 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
               hover={hover}
               box={canvasBox}
               row={rowOf(hover.well)}
-              step={stepIndex + 1}
+              step={selectedStep?.control_step ?? stepIndex}
+              date={selectedStep?.date ?? null}
             />
           </div>
         )}
@@ -213,7 +226,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
 };
 
 export const FieldProjection = () => {
-  const t = useT();
+  const { t } = useI18n();
   const wells = useDataset('wells');
   const graph = useDataset('graph');
 

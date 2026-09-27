@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Mapping
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
-from backend.contexts.assistant.infrastructure.artifacts import ArtifactError
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactError, RunError
+from backend.contexts.assistant.domain.errors import UpstreamError
 from backend.contexts.assistant.infrastructure.knowledge import KnowledgeError
 from backend.contexts.assistant.domain.session import SessionError
 from backend.contexts.assistant.infrastructure.session_store import SessionDiskError
@@ -87,6 +90,26 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
                 status, body = service.health()
                 self._json(status, body)
                 return
+            if route.startswith("/api/jarvis/run-artifacts/"):
+                parts = [unquote(part) for part in route.split("/")[4:]]
+                if len(parts) != 2:
+                    self._json(400, {"error": "bad-request", "message": "expected run id and artifact name"})
+                    return
+                run_id, artifact = parts
+                try:
+                    content = service.run_artifact(run_id, artifact)
+                except (ArtifactError, RunError) as error:
+                    self._json(404, {"error": "not-found", "message": str(error)})
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self._cors()
+                self.end_headers()
+                self.wfile.write(content)
+                return
             if route == "/api/jarvis/sessions":
                 self._json(200, {"sessions": service.session_rows()})
                 return
@@ -123,6 +146,25 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             self._json(200, {"id": session_id, "events": events})
 
         def _briefing(self, params: Mapping[str, list[str]]) -> None:
+            if not service.available:
+                status, body = service.health()
+                self._json(status, body)
+                return
+            if not service.try_acquire_request():
+                self._json(
+                    429,
+                    {
+                        "error": "busy",
+                        "message": "Jarvis is handling the maximum number of requests",
+                    },
+                )
+                return
+            try:
+                self._briefing_acquired(params)
+            finally:
+                service.release_request()
+
+        def _briefing_acquired(self, params: Mapping[str, list[str]]) -> None:
             if not service.available:
                 status, body = service.health()
                 self._json(status, body)
@@ -266,49 +308,115 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
                 status, body = service.health()
                 self._json(status, body)
                 return
-            self.send_response(200)
-            self.send_header("Content-Type", CONTENT_TYPE)
-            self.send_header("Cache-Control", "no-cache, no-transform")
-            self.send_header("Connection", "keep-alive")
-            self.send_header("X-Accel-Buffering", "no")
-            self.send_header("Transfer-Encoding", "chunked")
-            self._cors()
-            self.end_headers()
+            if not service.try_acquire_request():
+                self._json(
+                    429,
+                    {
+                        "error": "busy",
+                        "message": "Jarvis is handling the maximum number of requests",
+                    },
+                )
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", CONTENT_TYPE)
+                self.send_header("Cache-Control", "no-cache, no-transform")
+                self.send_header("Connection", "keep-alive")
+                self.send_header("X-Accel-Buffering", "no")
+                self.send_header("Transfer-Encoding", "chunked")
+                self._cors()
+                self.end_headers()
+            except Exception:
+                service.release_request()
+                raise
             self._stream(payload)
 
         def _stream(self, payload: Mapping[str, Any]) -> None:
             session_id = str(payload.get("session_id") or "")
             question = str(payload.get("question") or "")
-            writer = KeepAliveWriter(self.wfile)
+            request_id = uuid.uuid4().hex
+            started_at = time.monotonic()
+            outcome = "error"
+            error_code: str | None = None
+            http_status: int | None = None
+            request_generation: int | None = None
+
+            def cancel_request() -> None:
+                if request_generation is not None:
+                    service.sessions.cancel(session_id, request_generation)
+
+            writer = KeepAliveWriter(
+                self.wfile,
+                on_failure=cancel_request,
+            )
             with writer:
                 try:
                     stream = service.orchestrator.ask(
                         session_id, question, console_context(payload)
                     )
                     for event in stream:
-                        writer.write(encode_event(event.as_dict()))
+                        if event.type == "scene":
+                            request_generation = event.generation
+                        body = event.as_dict()
+                        body["request_id"] = request_id
+                        if event.type == "done":
+                            outcome = "success"
+                        elif event.type == "error":
+                            error_code = str(event.body.get("code") or "upstream")
+                        writer.write(encode_event(body))
                 except SessionError as error:
-                    self._emit_error(writer, "bad-request", str(error))
+                    error_code = "bad-request"
+                    self._emit_error(writer, "bad-request", str(error), request_id)
                 except (ArtifactError, KnowledgeError) as error:
-                    self._emit_error(writer, "tool-failed", str(error))
+                    error_code = "tool-failed"
+                    self._emit_error(writer, "tool-failed", str(error), request_id)
                 except TimeoutError as error:
-                    self._emit_error(writer, "timeout", str(error))
+                    error_code = "timeout"
+                    self._emit_error(writer, "timeout", str(error), request_id)
+                except UpstreamError as error:
+                    error_code = error.code
+                    raw_status = error.details.get("http_status")
+                    http_status = raw_status if isinstance(raw_status, int) else None
+                    self._emit_error(
+                        writer,
+                        error.code,
+                        str(error),
+                        request_id,
+                        http_status,
+                    )
                 except (BrokenPipeError, ConnectionResetError):
-                    service.sessions.cancel(session_id)
+                    outcome = "client-disconnected"
+                    error_code = "client-disconnected"
+                    cancel_request()
                     return
                 except Exception as error:
-                    self._emit_error(writer, "upstream", str(error))
+                    error_code = "upstream"
+                    self._emit_error(writer, "upstream", str(error), request_id)
+                finally:
+                    service.record_request(
+                        request_id,
+                        int((time.monotonic() - started_at) * 1000),
+                        outcome,
+                        error_code,
+                        http_status,
+                    )
+                    service.release_request()
             try:
                 self.wfile.write(final_chunk())
                 self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
-                service.sessions.cancel(session_id)
+                cancel_request()
 
         def _emit_error(
-            self, writer: KeepAliveWriter, code: str, message: str
+            self,
+            writer: KeepAliveWriter,
+            code: str,
+            message: str,
+            request_id: str | None = None,
+            http_status: int | None = None,
         ) -> None:
             try:
-                writer.write(error_event(code, message))
+                writer.write(error_event(code, message, request_id, http_status))
             except (BrokenPipeError, ConnectionResetError):
                 return
 

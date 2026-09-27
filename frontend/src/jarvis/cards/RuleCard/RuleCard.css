@@ -79,3 +79,89 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-disabled);
 }
+
+.jarvis-rule-evidence-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.jarvis-rule-evidence-details > summary {
+  color: var(--color-jarvis-ink);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.jarvis-rule-evidence-details[open] > summary {
+  margin-bottom: var(--space-3);
+}
+
+
+.jarvis-rule-evidence-section p {
+  margin: 0;
+}
+
+.jarvis-rule-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.jarvis-rule-evidence-list code {
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+}
+
+.jarvis-rule-map-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.jarvis-rule-map-action button {
+  min-height: var(--size-hit-min);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--color-jarvis-ink);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-jarvis-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.jarvis-rule-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.jarvis-rule-primary-actions button {
+  min-height: var(--size-hit-min);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--color-jarvis-ink);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-jarvis-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.jarvis-rule-primary-actions button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-rule-map-action button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

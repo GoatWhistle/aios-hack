@@ -33,6 +33,8 @@
   "pole.map": "Map",
   "poleLabel": "Projection",
   "shown": "Wells shown: {shown} of {total}",
+  "activeStep": "Control step {step} · {date}",
+  "stepUnavailable": "Active control step is not loaded",
   "threshold.edges": "{shown} links shown out of {total}",
   "threshold.label": "λ threshold",
   "tip.injection": "Injection",

@@ -94,3 +94,9 @@
   font-size: var(--font-size-mono);
   color: var(--color-text-faint);
 }
+
+.jarvis-board-alert-actions { display: inline-flex; gap: var(--space-1); }
+.jarvis-board-alert-actions button { min-height: var(--size-control-height); border: var(--border-hairline) solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; cursor: pointer; }
+.jarvis-board-freshness, .jarvis-board-loading { margin: 0; color: var(--color-text-faint); font-size: var(--font-size-xs); }
+.jarvis-board-freshness[data-stale='true'] { color: var(--color-warning); }
+.jarvis-board-loading { color: var(--color-accent); }

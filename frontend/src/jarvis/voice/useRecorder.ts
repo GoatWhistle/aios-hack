@@ -43,6 +43,7 @@ export const postAudio = async (
 interface RecorderOptions {
   lang: string;
   onText: (text: string) => void;
+  onFailure: (code: string) => void;
 }
 
 export interface Recorder {
@@ -52,23 +53,28 @@ export interface Recorder {
   stop: () => void;
 }
 
-export const useRecorder = ({ lang, onText }: RecorderOptions): Recorder => {
+export const useRecorder = ({ lang, onText, onFailure }: RecorderOptions): Recorder => {
   const [recording, setRecording] = useState(false);
   const media = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef(0);
-  const handler = useRef(onText);
-  handler.current = onText;
+  const starting = useRef(false);
+  const generation = useRef(0);
+  const handlers = useRef({ onText, onFailure });
+  handlers.current = { onText, onFailure };
 
   const release = useCallback(() => {
     window.clearTimeout(timer.current);
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
     media.current = null;
+    starting.current = false;
     setRecording(false);
   }, []);
 
   const stop = useCallback(() => {
+    generation.current += 1;
+    starting.current = false;
     if (media.current !== null && media.current.state !== 'inactive') {
       media.current.stop();
       return;
@@ -77,45 +83,66 @@ export const useRecorder = ({ lang, onText }: RecorderOptions): Recorder => {
   }, [release]);
 
   const start = useCallback(() => {
-    if (!recorderSupported() || media.current !== null) {
+    if (!recorderSupported() || media.current !== null || starting.current) {
       return;
     }
+    starting.current = true;
+    const token = ++generation.current;
+    setRecording(true);
     const run = async () => {
-      let live: MediaStream;
+      let live: MediaStream | null = null;
       try {
         live = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        return;
-      }
-      const supported =
-        typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(MIME);
-      const recorder = new MediaRecorder(
-        live,
-        supported ? { mimeType: MIME, audioBitsPerSecond: BITS_PER_SECOND } : undefined
-      );
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-      recorder.onstop = () => {
-        release();
-        if (chunks.length === 0) {
+        if (generation.current !== token) {
+          live.getTracks().forEach((track) => track.stop());
           return;
         }
-        const blob = new Blob(chunks, { type: recorder.mimeType || MIME });
-        void postAudio(blob, lang).then((text) => {
-          if (text.length > 0) {
-            handler.current(text);
+        const supported =
+          typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(MIME);
+        const recorder = new MediaRecorder(
+          live,
+          supported ? { mimeType: MIME, audioBitsPerSecond: BITS_PER_SECOND } : undefined
+        );
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onstop = () => {
+          release();
+          if (chunks.length === 0) {
+            handlers.current.onFailure('transcription');
+            return;
           }
-        });
-      };
-      stream.current = live;
-      media.current = recorder;
-      setRecording(true);
-      recorder.start();
-      timer.current = window.setTimeout(() => stop(), MAX_RECORD_MS);
+          const blob = new Blob(chunks, { type: recorder.mimeType || MIME });
+          void postAudio(blob, lang).then((text) => {
+            if (text.length > 0) {
+              handlers.current.onText(text);
+            } else {
+              handlers.current.onFailure('transcription');
+            }
+          });
+        };
+        stream.current = live;
+        media.current = recorder;
+        starting.current = false;
+        recorder.start();
+      } catch (error) {
+        live?.getTracks().forEach((track) => track.stop());
+        if (generation.current === token) {
+          release();
+          const name = error instanceof DOMException ? error.name : '';
+          handlers.current.onFailure(
+            name === 'NotAllowedError' || name === 'PermissionDeniedError'
+              ? 'not-allowed'
+              : name === 'NotFoundError' || name === 'DevicesNotFoundError'
+                ? 'audio-capture'
+                : 'unknown'
+          );
+        }
+      }
+      if (media.current !== null) {
+        timer.current = window.setTimeout(() => stop(), MAX_RECORD_MS);
+      }
     };
     void run();
   }, [lang, release, stop]);

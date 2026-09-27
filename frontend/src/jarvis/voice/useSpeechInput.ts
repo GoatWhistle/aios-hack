@@ -97,6 +97,7 @@ export const useSpeechInput = ({
       }
       best.current = text;
       if (final) {
+        best.current = '';
         handlers.current.onFinal(text);
         return;
       }
@@ -115,14 +116,34 @@ export const useSpeechInput = ({
       const code = typeof event?.error === 'string' ? event.error : 'unknown';
       recognition.current = null;
       setListening(false);
-      if (code !== 'no-speech' && code !== 'aborted') {
+      if (code === 'no-speech' && best.current.length === 0) {
+        setError(code);
+        handlers.current.onFailure(code);
+      } else if (code !== 'no-speech' && code !== 'aborted') {
+        best.current = '';
         setError(code);
         handlers.current.onFailure(code);
       }
     };
     recognition.current = instance;
     setListening(true);
-    instance.start();
+    try {
+      instance.start();
+    } catch (error) {
+      recognition.current = null;
+      best.current = '';
+      quietSince.current = 0;
+      setListening(false);
+      const code = error instanceof DOMException
+        ? error.name === 'NotAllowedError' || error.name === 'SecurityError'
+          ? 'not-allowed'
+          : error.name
+        : 'unknown';
+      if (code !== 'aborted') {
+        setError(code);
+        handlers.current.onFailure(code);
+      }
+    }
   }, [lang]);
 
   return { supported: speechSupported(), listening, start, stop, error, noteLevel };

@@ -1,0 +1,291 @@
+ M ARCHITECTURE_DIAGRAM.md
+ M README.md
+ M backend/contexts/assistant/__init__.py
+ M backend/contexts/assistant/application/assistant_service.py
+ M backend/contexts/assistant/application/orchestrator.py
+ M backend/contexts/assistant/application/orchestrator_compose.py
+ M backend/contexts/assistant/application/orchestrator_events.py
+ M backend/contexts/assistant/application/tools/__init__.py
+ M backend/contexts/assistant/application/tools/actions.py
+ M backend/contexts/assistant/application/tools/context.py
+ M backend/contexts/assistant/application/tools/decisions.py
+ M backend/contexts/assistant/application/tools/docs.py
+ M backend/contexts/assistant/application/tools/fields.py
+ M backend/contexts/assistant/application/tools/labels.py
+ M backend/contexts/assistant/application/tools/patterns.py
+ M backend/contexts/assistant/application/tools/ranking.py
+ M backend/contexts/assistant/application/tools/registry.py
+ M backend/contexts/assistant/application/tools/rules.py
+ M backend/contexts/assistant/application/tools/run_history.py
+ M backend/contexts/assistant/application/tools/runs.py
+ M backend/contexts/assistant/application/tools/schemas/decisions.py
+ M backend/contexts/assistant/application/tools/schemas/runs.py
+ M backend/contexts/assistant/application/tools/schemas/system.py
+ M backend/contexts/assistant/application/tools/schemas/wells.py
+ M backend/contexts/assistant/application/tools/system.py
+ M backend/contexts/assistant/application/tools/wells.py
+ M backend/contexts/assistant/domain/console_context.py
+ M backend/contexts/assistant/domain/guard.py
+ M backend/contexts/assistant/domain/session.py
+ M backend/contexts/assistant/infrastructure/artifacts/__init__.py
+ M backend/contexts/assistant/infrastructure/artifacts/runs.py
+ M backend/contexts/assistant/infrastructure/artifacts/scenarios.py
+ M backend/contexts/assistant/infrastructure/docs_index/chunking.py
+ M backend/contexts/assistant/infrastructure/docs_index/index.py
+ M backend/contexts/assistant/infrastructure/docs_index/sources.py
+ M backend/contexts/assistant/infrastructure/docs_index/store.py
+ M backend/contexts/assistant/infrastructure/llm/anthropic_chat.py
+ M backend/contexts/assistant/infrastructure/llm/chat.py
+ M backend/contexts/assistant/infrastructure/llm/diagnostics/detectors.py
+ M backend/contexts/assistant/infrastructure/llm/fake_chat.py
+ M backend/contexts/assistant/infrastructure/llm/openrouter.py
+ M backend/contexts/assistant/infrastructure/llm/provider.py
+ M backend/contexts/assistant/infrastructure/prompt.py
+ M backend/contexts/assistant/infrastructure/prompts/en/prompt.json
+ M backend/contexts/assistant/infrastructure/prompts/ru/prompt.json
+ M backend/contexts/assistant/infrastructure/session_store.py
+ M backend/contexts/economics/domain/methodology_hash.py
+ M backend/contexts/optimization/application/baseline_search.py
+ M backend/contexts/optimization/application/search_use_case.py
+ M backend/contexts/optimization/application/verification_run.py
+ M backend/contexts/optimization/infrastructure/artifacts.py
+ M backend/contexts/runs/application/run_projection.py
+ M backend/contexts/runs/application/web_runs.py
+ M backend/contexts/runs/application/workflow.py
+ M backend/contexts/runs/domain/run_result.py
+ M backend/contexts/runs/infrastructure/worker_process.py
+ M backend/contexts/showcase/application/build_showcase.py
+ M backend/contexts/showcase/application/showcase_meta.py
+ M backend/contexts/simulation/application/submission.py
+ M backend/interfaces/cli/jarvis.py
+ M backend/interfaces/cli/web.py
+ M backend/interfaces/cli/web_run_worker.py
+ M backend/interfaces/http/assistant/server.py
+ M backend/interfaces/http/console/proxy.py
+ M backend/interfaces/http/kit/sse.py
+ M backend/shared/i18n/en.json
+ M backend/shared/i18n/ru.json
+ M docker-compose.yml
+ M docker/entrypoint.sh
+ M frontend/public/jarvis/fixtures/champion-run.jsonl
+ M frontend/public/jarvis/fixtures/compare-scenarios.jsonl
+ M frontend/public/jarvis/fixtures/council-at-96.jsonl
+ M frontend/public/jarvis/fixtures/field-in-2015.jsonl
+ M frontend/public/jarvis/fixtures/how-system-works.jsonl
+ M frontend/public/jarvis/fixtures/how-to-verify.jsonl
+ M frontend/public/jarvis/fixtures/what-i-asked.jsonl
+ M frontend/public/jarvis/fixtures/what-is-npv.jsonl
+ M frontend/public/jarvis/fixtures/where-is-connectivity.jsonl
+ M frontend/public/jarvis/fixtures/who-drags-npv.jsonl
+ M frontend/public/jarvis/fixtures/why-well-13.jsonl
+ M frontend/public/jarvis/knowledge/i18n/en/system.json
+ M frontend/public/jarvis/knowledge/i18n/ru/system.json
+ M frontend/public/jarvis/knowledge/system.json
+ M frontend/src/app/ConsoleScene/useWorkspaceData.ts
+ M frontend/src/entities/timeline/model/TimelineContext.tsx
+ M frontend/src/features/inspector/ui/WellCard/WellCard.tsx
+ M frontend/src/jarvis/actions/lib/consoleAction.ts
+ M frontend/src/jarvis/actions/lib/consoleActions.ts
+ M frontend/src/jarvis/actions/lib/explainScene.ts
+ M frontend/src/jarvis/actions/lib/useConsoleActions.ts
+ M frontend/src/jarvis/actions/lib/useExplainAction.ts
+ M frontend/src/jarvis/cards/Card/Card.tsx
+ M frontend/src/jarvis/cards/CardBody/CardBody.tsx
+ M frontend/src/jarvis/cards/CompareCard/CompareCard.css
+ M frontend/src/jarvis/cards/CompareCard/CompareCard.tsx
+ M frontend/src/jarvis/cards/ConstraintsCard/ConstraintsCard.tsx
+ M frontend/src/jarvis/cards/CouncilCard/CouncilCard.tsx
+ M frontend/src/jarvis/cards/DocCard/DocCard.css
+ M frontend/src/jarvis/cards/DocCard/DocCard.tsx
+ M frontend/src/jarvis/cards/ErrorCard/ErrorCard.css
+ M frontend/src/jarvis/cards/ErrorCard/ErrorCard.tsx
+ M frontend/src/jarvis/cards/EventStripCard/EventStripCard.css
+ M frontend/src/jarvis/cards/EventStripCard/EventStripCard.tsx
+ M frontend/src/jarvis/cards/GlossaryCard/GlossaryCard.tsx
+ M frontend/src/jarvis/cards/MetricCard/MetricCard.tsx
+ M frontend/src/jarvis/cards/PatternCard/PatternCard.tsx
+ M frontend/src/jarvis/cards/PhysicsCard/PhysicsCard.tsx
+ M frontend/src/jarvis/cards/RuleCard/RuleCard.css
+ M frontend/src/jarvis/cards/RuleCard/RuleCard.tsx
+ M frontend/src/jarvis/cards/RunCard/RunCard.css
+ M frontend/src/jarvis/cards/RunCard/RunCard.tsx
+ M frontend/src/jarvis/cards/RunListCard/RunListCard.css
+ M frontend/src/jarvis/cards/RunListCard/RunListCard.tsx
+ M frontend/src/jarvis/cards/SeriesCard/SeriesCard.tsx
+ M frontend/src/jarvis/cards/StatusBoardCard/StatusBoardCard.css
+ M frontend/src/jarvis/cards/StatusBoardCard/StatusBoardCard.tsx
+ M frontend/src/jarvis/cards/SystemMapCard/SystemMapCard.tsx
+ M frontend/src/jarvis/cards/WellCard/WellCard.css
+ M frontend/src/jarvis/cards/WellCard/WellCard.tsx
+ M frontend/src/jarvis/cards/WellListCard/WellListCard.css
+ M frontend/src/jarvis/cards/WellListCard/WellListCard.tsx
+ M frontend/src/jarvis/cards/payloads/comparePayload.ts
+ M frontend/src/jarvis/cards/payloads/docPayload.ts
+ M frontend/src/jarvis/cards/payloads/errorPayload.ts
+ M frontend/src/jarvis/cards/payloads/eventStripPayload.ts
+ M frontend/src/jarvis/cards/payloads/index.ts
+ M frontend/src/jarvis/cards/payloads/patternPayload.ts
+ M frontend/src/jarvis/cards/payloads/payloadTypes.ts
+ M frontend/src/jarvis/cards/payloads/provenance.ts
+ M frontend/src/jarvis/cards/payloads/runPayload.ts
+ M frontend/src/jarvis/cards/payloads/runRow.ts
+ M frontend/src/jarvis/cards/payloads/statusBoardPayload.ts
+ M frontend/src/jarvis/cards/payloads/systemTypes.ts
+ M frontend/src/jarvis/cards/payloads/wellListPayload.ts
+ M frontend/src/jarvis/cards/payloads/wellPayload.ts
+ M frontend/src/jarvis/markdown/lib/inline.ts
+ M frontend/src/jarvis/model/jarvisValue.ts
+ M frontend/src/jarvis/model/scenes.ts
+ M frontend/src/jarvis/model/sessions.ts
+ M frontend/src/jarvis/provider/useJarvisBriefing.ts
+ M frontend/src/jarvis/provider/useJarvisSession.ts
+ M frontend/src/jarvis/provider/useSessionValue.ts
+ M frontend/src/jarvis/scene/ContextRibbon/ContextRibbon.tsx
+ M frontend/src/jarvis/scene/HistoryRail/HistoryRail.css
+ M frontend/src/jarvis/scene/HistoryRail/HistoryRail.tsx
+ M frontend/src/jarvis/scene/Orbit/Orbit.tsx
+ M frontend/src/jarvis/scene/lib/cardGlyphs.ts
+ M frontend/src/jarvis/screen/JarvisScreen/JarvisScreen.tsx
+ M frontend/src/jarvis/stage/JarvisStage/JarvisStage.tsx
+ M frontend/src/jarvis/transport/eventTypes.ts
+ M frontend/src/jarvis/transport/events.ts
+ M frontend/src/jarvis/transport/sseTransport.ts
+ M frontend/src/jarvis/voice/MicButton/MicButton.tsx
+ M frontend/src/jarvis/voice/speakText.ts
+ M frontend/src/jarvis/voice/useRecorder.ts
+ M frontend/src/jarvis/voice/useSpeechInput.ts
+ M frontend/src/jarvis/voice/useVoiceOutput.ts
+ M frontend/src/pages/council/ui/Council/Council.tsx
+ M frontend/src/pages/field-projection/ui/FieldProjection/FieldProjection.css
+ M frontend/src/pages/field-projection/ui/FieldProjection/FieldProjection.tsx
+ M frontend/src/pages/field-projection/ui/NodeTooltip/NodeTooltip.tsx
+ M frontend/src/pages/money-constraints/model/runTypes.ts
+ M frontend/src/pages/money-constraints/model/useLiveRuns.ts
+ M frontend/src/pages/money-constraints/ui/ConstraintsEditor/ConstraintsEditor.tsx
+ M frontend/src/pages/money-constraints/ui/LiveRuns/LiveRuns.css
+ M frontend/src/pages/money-constraints/ui/LiveRuns/LiveRuns.tsx
+ M frontend/src/pages/money-constraints/ui/RunCard/RunCard.tsx
+ M frontend/src/shared/api/ResourceState.ts
+ M frontend/src/shared/api/fetchJson.ts
+ M frontend/src/shared/api/notice.ts
+ M frontend/src/shared/api/useJsonResource.ts
+ M frontend/src/shared/i18n/locales/en/council.json
+ M frontend/src/shared/i18n/locales/en/jarvis-cards.json
+ M frontend/src/shared/i18n/locales/en/jarvis-rail.json
+ M frontend/src/shared/i18n/locales/en/jarvis-screen.json
+ M frontend/src/shared/i18n/locales/en/jarvis-stage.json
+ M frontend/src/shared/i18n/locales/en/jarvis-voice.json
+ M frontend/src/shared/i18n/locales/en/projection.json
+ M frontend/src/shared/i18n/locales/en/runs.json
+ M frontend/src/shared/i18n/locales/en/showcase.json
+ M frontend/src/shared/i18n/locales/en/trust.json
+ M frontend/src/shared/i18n/locales/ru/council.json
+ M frontend/src/shared/i18n/locales/ru/jarvis-cards.json
+ M frontend/src/shared/i18n/locales/ru/jarvis-rail.json
+ M frontend/src/shared/i18n/locales/ru/jarvis-screen.json
+ M frontend/src/shared/i18n/locales/ru/jarvis-stage.json
+ M frontend/src/shared/i18n/locales/ru/jarvis-voice.json
+ M frontend/src/shared/i18n/locales/ru/projection.json
+ M frontend/src/shared/i18n/locales/ru/runs.json
+ M frontend/src/shared/i18n/locales/ru/showcase.json
+ M frontend/src/shared/i18n/locales/ru/trust.json
+ M frontend/src/shared/lib/format/format.ts
+ M frontend/src/shared/lib/format/index.ts
+ M pyproject.toml
+ M tests/architecture/backend/test_no_env_outside_settings.py
+ M tests/backend/contexts/assistant/llm/test_openrouter.py
+ M tests/backend/contexts/assistant/llm/test_provider.py
+ M tests/backend/contexts/assistant/test_actions_and_session.py
+ M tests/backend/contexts/assistant/test_artifacts.py
+ M tests/backend/contexts/assistant/test_guard.py
+ M tests/backend/contexts/assistant/test_orchestrator.py
+ M tests/backend/contexts/assistant/test_tools_analysis.py
+ M tests/backend/contexts/assistant/test_tools_decisions.py
+ M tests/backend/contexts/assistant/test_tools_field.py
+ M tests/backend/contexts/assistant/test_tools_runs.py
+ M tests/backend/contexts/assistant/test_tools_wells.py
+ M tests/backend/contexts/optimization/test_bundle_verify_and_lambda_sync.py
+ M tests/backend/contexts/optimization/test_ood_calibration_and_soft_penalty.py
+ M tests/backend/contexts/optimization/test_runtime_artifacts.py
+ M tests/backend/contexts/runs/test_run_workflow.py
+ M tests/backend/contexts/runs/test_web_runs.py
+ M tests/backend/contexts/showcase/test_demo.py
+ M tests/backend/interfaces/cli/test_surrogate_check_provenance.py
+ M tests/backend/interfaces/http/test_jarvis_cli.py
+ M tests/backend/interfaces/http/test_jarvis_server.py
+ M tests/frontend/jarvis/actions/useConsoleActions.test.tsx
+ M tests/frontend/jarvis/model/scenes.test.ts
+ M tests/frontend/jarvis/transport/events.test.ts
+ M tests/frontend/knowledge/cardPayloads.test.ts
+ M tests/frontend/knowledge/validators.artifacts.test.ts
+ M tests/frontend/pages/council/Council.test.tsx
+ M tests/frontend/pages/field-projection/FieldProjection.test.tsx
+ M tests/frontend/pages/money-constraints/LiveRuns.test.tsx
+ M tests/frontend/shared/api/fetchJson.test.tsx
+ M tests/frontend/shared/lib/format/format.test.ts
+?? .env.example
+?? JARVIS_BACKLOG.md
+?? JARVIS_CONTEXT.md
+?? JARVIS_DEMO_RUNBOOK.md
+?? JARVIS_DEPLOY.md
+?? JARVIS_ROUTE_AND_FEASIBLE_PLAN.md
+?? JARVIS_RUNS_20260926.md
+?? JARVIS_STATUS_20260927.md
+?? JARVIS_TOOL_MATRIX.md
+?? PROJECT_CONTEXT.md
+?? artifacts/jarvis-scenario-registry.json
+?? artifacts/surrogate-trajectory-ab-20260910/final-submission/validation/
+?? backend/contexts/assistant/application/tools/run_proposals.py
+?? backend/contexts/assistant/domain/cancellation.py
+?? backend/contexts/assistant/infrastructure/llm/compatible.py
+?? backend/contexts/runs/application/case_request.py
+?? backend/contexts/schedule/domain/alternative.py
+?? backend/shared/env_file.py
+?? deploy/
+?? frontend/src/jarvis/cards/RuleCard/RunSeriesPlot.css
+?? frontend/src/jarvis/cards/RuleCard/RunSeriesPlot.tsx
+?? frontend/src/jarvis/cards/RunProposalCard/
+?? frontend/src/jarvis/cards/RunStatusCard/
+?? frontend/src/jarvis/cards/SubmissionCard/
+?? frontend/src/jarvis/cards/WellComparisonCard/
+?? frontend/src/jarvis/cards/lib/councilCodeLabel.ts
+?? frontend/src/jarvis/cards/lib/diagnosticPatternLabel.ts
+?? frontend/src/jarvis/cards/lib/metricLabel.ts
+?? frontend/src/jarvis/cards/lib/opmStatusLabel.ts
+?? frontend/src/jarvis/cards/lib/runStatusLabel.ts
+?? frontend/src/jarvis/cards/lib/runStrategyLabel.ts
+?? frontend/src/jarvis/cards/lib/scenarioLabel.ts
+?? frontend/src/jarvis/cards/lib/systemMapKindLabel.ts
+?? frontend/src/jarvis/cards/lib/translationFallback.ts
+?? frontend/src/jarvis/cards/lib/violationDetailLabel.ts
+?? frontend/src/jarvis/cards/lib/violationKindLabel.ts
+?? frontend/src/jarvis/cards/lib/wellCodeLabel.ts
+?? frontend/src/jarvis/cards/payloads/runSeriesPayload.ts
+?? frontend/src/jarvis/cards/payloads/runStatusPayload.ts
+?? frontend/src/jarvis/cards/payloads/submissionPayload.ts
+?? frontend/src/jarvis/cards/payloads/wellComparisonPayload.ts
+?? frontend/src/jarvis/scene/WalkthroughControls/
+?? frontend/src/jarvis/stage/JarvisCompanion/
+?? scripts/import_jarvis_evidence.py
+?? scripts/jarvis_stack.py
+?? scripts/package_jarvis.py
+?? tests/backend/contexts/assistant/test_docs_acceptance.py
+?? tests/backend/contexts/assistant/test_evidence_import.py
+?? tests/backend/contexts/assistant/test_run_evidence.py
+?? tests/backend/contexts/assistant/test_run_proposals.py
+?? tests/backend/contexts/assistant/test_tool_registry.py
+?? tests/backend/contexts/assistant/test_tools_catalog_audit.py
+?? tests/backend/contexts/assistant/test_tools_docs.py
+?? tests/backend/contexts/runs/test_alternative_worker.py
+?? tests/backend/contexts/runs/test_case_request.py
+?? tests/backend/contexts/schedule/test_alternative.py
+?? tests/frontend/jarvis/cards/
+?? tests/frontend/jarvis/markdown/
+?? tests/frontend/jarvis/model/sessions.test.ts
+?? tests/frontend/jarvis/provider/
+?? tests/frontend/jarvis/scene/HistoryRail.test.tsx
+?? tests/frontend/jarvis/scene/WalkthroughControls.test.tsx
+?? tests/frontend/jarvis/stage/
+?? tests/frontend/jarvis/transport/sseTransport.test.ts
+?? tests/frontend/jarvis/voice/
+?? uv.lock

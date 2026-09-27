@@ -1,5 +1,10 @@
 # AIOS — трек 2
 
+Актуальный контекст решения и проверенные формулировки для защиты: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+
+Джарвис: [запуск одной командой и перенос на сервер](JARVIS_DEPLOY.md),
+[актуальная приёмка и оставшиеся задачи](JARVIS_STATUS_20260927.md).
+
 Подготовка к финалу, период AIOS и поиск проверенного лидера: [FINAL_RUNBOOK.md](../docs/FINAL_RUNBOOK.md).
 
 
@@ -54,7 +59,7 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 | `aios selfcheck` | состояние окружения |
 | `aios selfcheck --submission <каталог>` | сверка готового пакета сдачи с заявленными хешами |
 | `aios web` | веб-интерфейс на готовой витрине |
-| `aios jarvis` | сервис Джарвиса (без ключа — демо-режим на фикстурах) |
+| `aios jarvis` | сервис Джарвиса; для ответов модели нужен API-ключ |
 
 Витрина `frontend/public/data/` собрана заранее и лежит в git — интерфейс и Джарвис работают
 без единого прогона OPM.
@@ -180,46 +185,128 @@ Python в `domain`-слое каждого контекста: они и ест�
 
 Визуальный ассистент консоли: вопрос на естественном языке — сцена из карточек с настоящими
 числами из витрины. Отдельный процесс и отдельный сервис compose, порт 8010, HTTP и SSE на
-stdlib. Замысел и контракт — в [JARVIS.md](../docs/JARVIS.md).
+stdlib. Текущая карта реализации — [JARVIS_CONTEXT.md](JARVIS_CONTEXT.md); исторический
+замысел и контракт — в [JARVIS.md](../aios-hack/aios/JARVIS.md).
 
-Локально:
+Локально, из корня репозитория (Python 3.11+, проверено на 3.12). Окружение и зависимости на текущей машине
+уже установлены; команды установки нужны при первом запуске:
 
 ```bash
-export OPENROUTER_API_KEY=sk-or-...
-aios jarvis --port 8010
-curl -s http://localhost:8010/api/jarvis/health
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[jarvis]'
 ```
 
-Дев-фронт на 5199 ходит на `/api/jarvis/*` через прокси Vite; этот origin разрешён в CORS
-сервиса напрямую, поэтому запрос с `http://localhost:5199` проходит и без прокси. Флаг
-`--check` печатает health и выходит, не поднимая сервер.
+Если `.env.local` ещё нет, создать его по [.env.example](.env.example) и заполнить
+`JARVIS_API_KEY` ключом NunAway. Рабочая конфигурация: `JARVIS_PROVIDER=openai-compatible`,
+`JARVIS_BASE_URL=https://nunaway.lol/v1`, `JARVIS_MODEL=gpt-5.5`. Существующий файл с ключом
+не перезаписывать. CLI автоматически читает `.env.local` из корня; переменные,
+экспортированные в терминале, имеют приоритет. Другой файл задаётся через `--env-file`.
 
-В compose:
+Терминал 1, из корня:
 
 ```bash
-OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
+.venv/bin/aios jarvis --host 127.0.0.1 --port 8010
+```
+
+Терминал 2:
+
+```bash
+cd frontend
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5199 --strictPort
+```
+
+Открыть **http://127.0.0.1:5199/** и сферу Джарвиса. Vite проксирует `/api/jarvis/*`
+на порт 8010. `.venv/bin/aios jarvis --check` печатает health и выходит, не поднимая сервер;
+этот вызов проверяет конфигурацию и данные, но не делает запрос генерации к модели.
+
+Для доступного прогона с `well-explanations.json` один раз постройте индекс журнала:
+
+```bash
+.venv/bin/python scripts/import_jarvis_evidence.py out/jarvis-evidence-20260926/runs
+```
+
+Передайте каталог, указанный в `AIOS_JARVIS_RUNS`, если он отличается. Импортёр пропускает
+прогоны без журнала причин и проверяет хеш расписания и исходного журнала. Для запроса
+объяснения Джарвис использует идентификатор нужного прогона из `run_history`.
+
+26.09.2026 проверен настоящий запрос через Vite → Jarvis → NunAway → `well_snapshot`:
+карточка и ответ получены за 11,6 с. `POST /api/jarvis/speak` вернул MP3. Сборка
+`npm run build` завершилась успешно. Голосовой ввод на целевом браузере ещё нужно проверить.
+
+В compose передаётся тот же файл провайдера. Пути внутри контейнера задаются отдельно
+от локальных путей; для новых расчётов `web` также нужен полный каталог runtime-данных
+с `surrogate-production.json` и Model_Z. Пример для соседнего архива:
+
+```bash
+AIOS_DOCS=../aios-hack/docs \
+AIOS_RUNTIME_DATA=../aios-hack/aios/data \
+AIOS_JARVIS_DOCS='/app;/data/docs' \
+docker compose --env-file .env.local up --build jarvis web
 ```
 
 Сервис `web` проксирует `/api/jarvis/*` на `jarvis:8010`, поэтому фронт в контейнере ходит на
-тот же origin. Адрес апстрима меняется через `AIOS_JARVIS_UPSTREAM`.
+тот же origin. Адрес апстрима меняется через `AIOS_JARVIS_UPSTREAM`. Пример compose обновлён;
+внешний деплой и HTTPS в этой сессии не проверялись. Для локального запуска `aios web`
+вне Compose задайте `AIOS_DATA_ROOT` и `AIOS_DOCS_ROOT` на эти каталоги перед стартом;
+иначе создание job возможно, но worker завершится ошибкой отсутствующего артефакта.
 
 Переменные окружения:
 
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
-| `JARVIS_PROVIDER` | `openrouter` | `openrouter` или `anthropic` |
-| `OPENROUTER_API_KEY` | — | ключ OpenRouter, основной путь |
-| `ANTHROPIC_API_KEY` | — | ключ Anthropic, запасной путь |
-| `JARVIS_MODEL` | `anthropic/claude-sonnet-4.5` | любая модель с tool calling и стримом |
-| `JARVIS_MAX_TOKENS` | `1200` | потолок ответа модели |
+| `JARVIS_PROVIDER` | `openrouter` | `openrouter`, `anthropic`, `openai-compatible` |
+| `JARVIS_API_KEY` | — | серверный ключ совместимого шлюза, для NunAway используется он |
+| `JARVIS_BASE_URL` | — | обязателен для `openai-compatible`; NunAway: `https://nunaway.lol/v1` |
+| `OPENROUTER_API_KEY` | — | ключ OpenRouter; также нужен для серверного STT |
+| `ANTHROPIC_API_KEY` | — | ключ прямого Anthropic API |
+| `JARVIS_MODEL` | зависит от провайдера | для `openai-compatible` обязателен; проверен `gpt-5.5` |
+| `JARVIS_MAX_TOKENS` | `2400` | потолок ответа модели |
+| `JARVIS_MAX_CONCURRENT_REQUESTS` | `8` (от 1 до 64) | верхний предел одновременных запросов ask/briefing |
 | `AIOS_UI_DATA` | витрина в репозитории | каталог JSON-витрины |
 | `AIOS_JARVIS_KNOWLEDGE` | `frontend/public/jarvis/knowledge` | база знаний |
-| `AIOS_JARVIS_HOST` / `AIOS_JARVIS_PORT` | `0.0.0.0` / `8010` | адрес сервиса |
+| `AIOS_JARVIS_DOCS` | `/app;/data/docs` в compose | корни Markdown через `;`; внешний архив смонтирован read-only в `/data/docs` |
+| `AIOS_JARVIS_DOCS_BASE_URL` | пусто | публичный HTTPS-корень с теми же относительными путями; включает глубокие ссылки на разделы в карточках документов |
+| `AIOS_JARVIS_RUNS` | `/out/jarvis-evidence-20260926/runs` в compose | каталог импортированных прогонов для инструментов; `/out` — монтирование локального `./out`; переопределите путь для другого набора |
+| `AIOS_JARVIS_SESSIONS` | `/out/jarvis/sessions` в compose | каталог сессий и событий для восстановления после перезапуска |
+| `AIOS_JARVIS_SESSION_TTL_DAYS` | `30` | срок хранения после последнего события; допустимо от 1 до 3650 дней |
+| `AIOS_JARVIS_HOST` / `AIOS_JARVIS_PORT` | `127.0.0.1` / `8010` локально; `0.0.0.0` внутри compose | адрес и порт процесса |
+| `AIOS_JARVIS_BIND_ADDRESS` | `127.0.0.1` | адрес хоста для опубликованного порта Jarvis в compose |
+
+Секрет остаётся на сервере; переменные `VITE_*` для него не используются. В режиме
+`openai-compatible` нет автоматической отправки ключа другому провайдеру. TLS проверяется
+по системным сертификатам с добавлением `certifi`.
+
+### Доступ, сессии и диагностика Jarvis
+
+Сессии сохраняются в `AIOS_JARVIS_SESSIONS` в JSONL-файлах: там есть вопросы,
+карточки и ответы, поэтому каталог доступен только доверенным пользователям машины.
+После 30 дней бездействия каталог сессии удаляется; `AIOS_JARVIS_SESSION_TTL_DAYS`
+задаёт срок от 1 до 3650 дней. Compose монтирует его внутри общего `./out` тома.
+
+Локальный CLI по умолчанию слушает `127.0.0.1`. В compose процесс слушает внутренний
+интерфейс контейнера, а опубликованный host-порт по умолчанию привязан к `127.0.0.1`;
+публичный показ следует проводить через защищённый reverse proxy или VPN с ограничением
+доступа. CORS ограничивает браузерные источники, но не является аутентификацией. Если
+меняете `AIOS_JARVIS_BIND_ADDRESS` на публичный интерфейс, настройте внешний контроль
+доступа и TLS до запуска.
+
+Диагностические записи с request id, моделью, длительностью, исходом и кодом ошибки
+попадают в stdout сервиса (`docker compose logs jarvis`); Compose хранит не более трёх
+файлов по 10 MiB. Ключи и текст вопросов в них не записываются.
+`/api/jarvis/health` показывает только последний запрос в памяти и
+сбрасывает это поле при перезапуске; долговременная история разговора остаётся в каталоге
+сессий.
+
+Озвучка использует `edge-tts` без отдельного API-ключа. Голосовой ввод сначала использует
+браузерное SpeechRecognition; серверный резервный STT требует отдельного
+`OPENROUTER_API_KEY`. Ключ NunAway туда автоматически не передаётся.
 
 Без ключа сервис всё равно поднимается: `/api/jarvis/health` и `/api/jarvis/ask` отвечают
 `503` с телом `{"ok": false, "error": "no-api-key", ...}`, где в `message` сказано, какую
-переменную задать. Консоль при этом работает, а Джарвис переходит в демо-режим на фикстурах
-`frontend/public/jarvis/fixtures/*.jsonl` с честной плашкой — сцены те же, подписи записанные.
+переменную задать. Консоль при этом работает, а Джарвис показывает ошибку подключения.
+Фикстуры `frontend/public/jarvis/fixtures/*.jsonl` используются для записи и проверок;
+текущий фронт их автоматически не воспроизводит, а production-сборка удаляет.
 
 ## Входы и результаты
 

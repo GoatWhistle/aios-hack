@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import math
+from pathlib import Path
 from typing import Any, Mapping
 
 from backend.contexts.assistant.infrastructure.artifacts import (
@@ -81,10 +84,122 @@ def _constraints(record: RunRecord) -> dict[str, Any]:
             ),
         }
     checks = report.get("checks")
+    rows = list(checks) if isinstance(checks, (list, tuple)) else None
+    recorded = rows is not None and len(rows) > 0
+    unavailable_reason = report.get("unavailable_reason")
+    if not recorded and not unavailable_reason:
+        unavailable_reason = "the constraints report contains no check rows, so constraint coverage is unknown"
     return {
-        "recorded": checks is not None,
-        "checks": list(checks) if isinstance(checks, (list, tuple)) else None,
-        "unavailable_reason": report.get("unavailable_reason"),
+        "recorded": recorded,
+        "checks": rows,
+        "unavailable_reason": unavailable_reason,
+    }
+
+
+def _acceptance(record: RunRecord) -> dict[str, Any]:
+    """Summarize only recorded run checks; missing evidence never becomes approval."""
+    violations = _violations(record)
+    constraints = _constraints(record)
+    sound = _value(record, "sound")
+    opm_status = violations["opm_status"]
+    blocking = violations["blocking"]
+    checks = constraints["checks"]
+    if (
+        sound is False
+        or (isinstance(blocking, int) and blocking > 0)
+        or (isinstance(opm_status, str) and opm_status != "OK")
+    ):
+        verdict = "rejected"
+    elif (
+        sound is True
+        and blocking == 0
+        and opm_status == "OK"
+        and constraints["recorded"]
+    ):
+        verdict = "accepted_for_recorded_checks"
+    else:
+        verdict = "unknown"
+    return {
+        "verdict": verdict,
+        "opm_status": opm_status,
+        "sound": sound,
+        "blocking_violations": blocking,
+        "dynamic_violations": violations["dynamic"],
+        "failed_identities": violations["failed_identities"],
+        "checks_recorded": constraints["recorded"],
+        "checks": checks,
+        "unverified_reason": constraints["unavailable_reason"] if not constraints["recorded"] else None,
+        "npv_sources": {
+            "predicted": {"value": _value(record, "predicted_npv"), "source": "run manifest / surrogate prediction"},
+            "verified": {"value": _value(record, "verified_npv"), "source": "run manifest / OPM verification"},
+        },
+        "scope_note": "Acceptance applies only to the recorded checks; absent checks are unknown.",
+    }
+
+
+def _violation_locations(record: RunRecord) -> dict[str, Any]:
+    path = record.directory / "validation" / "violations.json"
+    if not path.is_file():
+        return {
+            "recorded": False,
+            "rows": [],
+            "total": None,
+            "truncated": False,
+            "reason": "validation/violations.json is not recorded for this run",
+        }
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        data = None
+    if not isinstance(data, list):
+        return {
+            "recorded": False,
+            "rows": [],
+            "total": None,
+            "truncated": False,
+            "reason": "validation/violations.json is unreadable or has an invalid format",
+        }
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(data):
+        if not isinstance(row, dict) or not isinstance(row.get("kind"), str) or not row["kind"]:
+            return {
+                "recorded": False, "rows": [], "total": None, "truncated": False,
+                "reason": f"validation/violations.json row {index} has no violation kind",
+            }
+        for coordinate in ("control_step", "region"):
+            value = row.get(coordinate)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+                return {
+                    "recorded": False, "rows": [], "total": None, "truncated": False,
+                    "reason": f"validation/violations.json row {index} has an invalid {coordinate}",
+                }
+        well = row.get("well")
+        value = row.get("value")
+        detail = row.get("detail")
+        blocking = row.get("blocking")
+        if (well is not None and (not isinstance(well, str) or not well)
+            or value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value))
+            or detail is not None and not isinstance(detail, str)
+            or not isinstance(blocking, bool)):
+            return {
+                "recorded": False, "rows": [], "total": None, "truncated": False,
+                "reason": f"validation/violations.json row {index} has invalid location or violation fields",
+            }
+        rows.append({
+            "kind": row["kind"],
+            "control_step": row.get("control_step"),
+            "well": well,
+            "region": row.get("region"),
+            "value": value,
+            "detail": detail or "",
+            "blocking": blocking,
+        })
+    return {
+        "recorded": True,
+        "rows": rows[:200],
+        "total": len(rows),
+        "truncated": len(rows) > 200,
+        "reason": None,
     }
 
 
@@ -121,6 +236,8 @@ def run_status(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         ),
         "violations": _violations(record),
         "constraints": _constraints(record),
+        "acceptance": _acceptance(record),
+        "violation_locations": _violation_locations(record),
         "has_submission": record.submission is not None,
         "source": str(record.directory / "manifest.json"),
         "not_recorded_marker": NOT_RECORDED,

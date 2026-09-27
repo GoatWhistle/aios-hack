@@ -47,7 +47,6 @@ from backend.contexts.showcase.application.showcase_meta import (
     confirmed_base_robustness,
     deck_scale,
     demo_meta,
-    hierarchy_meta,
 )
 from backend.contexts.showcase.application.showcase_script import (
     EVENT_HOLD_MS,
@@ -89,6 +88,38 @@ def _stamp_trace(path: Path, meta: dict[str, Any]) -> None:
     )
 
 
+def _remove_recomputed_hierarchies(root: Path) -> None:
+    """Remove legacy policy replays that were mislabeled as recorded decisions."""
+    for index_path in root.rglob("hierarchy-index.json"):
+        try:
+            index = read_json(index_path)
+        except (OSError, ValueError, TypeError):
+            continue
+        meta = index.get("meta") if isinstance(index, dict) else None
+        if not isinstance(meta, dict) or meta.get("provenance") != HIERARCHY_PROVENANCE:
+            continue
+        template = index.get("step_path")
+        count = index.get("step_count")
+        if (
+            not isinstance(template, str)
+            or "{step}" not in template
+            or Path(template).is_absolute()
+            or ".." in Path(template).parts
+            or not isinstance(count, int)
+            or count < 0
+            or count > 10000
+        ):
+            continue
+        for step in range(count):
+            (index_path.parent / template.replace("{step}", str(step))).unlink(missing_ok=True)
+        index_path.unlink(missing_ok=True)
+        steps_dir = index_path.parent / Path(template.replace("{step}", "0")).parent
+        try:
+            steps_dir.rmdir()
+        except OSError:
+            pass
+
+
 SCENARIO_KINDS: tuple[str, ...] = (
     "timeline",
     "graph",
@@ -116,11 +147,13 @@ def export_scenario(
     trace_path = export_trace_json(artifact, out_dir / "trace.json")
     _stamp_trace(trace_path, meta_by_kind["trace"])
     written.append(trace_path)
-    hierarchy_path = export_hierarchy_json(artifact, out_dir / "hierarchy.json")
-    _stamp(hierarchy_path, meta_by_kind.get("hierarchy", hierarchy_meta(artifact)))
-    document = read_json(hierarchy_path)
-    hierarchy_path.unlink()
-    written.extend(export_hierarchy_steps(document, out_dir))
+    hierarchy_meta_value = meta_by_kind.get("hierarchy")
+    if hierarchy_meta_value is not None and hierarchy_meta_value.get("synthetic") is True:
+        hierarchy_path = export_hierarchy_json(artifact, out_dir / "hierarchy.json")
+        _stamp(hierarchy_path, hierarchy_meta_value)
+        document = read_json(hierarchy_path)
+        hierarchy_path.unlink()
+        written.extend(export_hierarchy_steps(document, out_dir))
     ablation_path = export_ablation_json(
         artifact, out_dir / "ablation.json", DEMO_SEED
     )
@@ -136,6 +169,7 @@ def build_demo(
 ) -> list[Path]:
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)
+    _remove_recomputed_hierarchies(root)
     wells = deck_scale(deck_path)
     base_result = build_base_artifact(
         _BASE_NORMATIVES,
@@ -149,12 +183,6 @@ def build_demo(
     )
     base_meta_by_kind: dict[str, dict[str, Any]] = {
         kind: real_meta(kind, base_result) for kind in ("timeline", "graph", "npv", "trace")
-    }
-    base_meta_by_kind["hierarchy"] = {
-        **real_meta("hierarchy", base_result),
-        **hierarchy_meta(base),
-        "source_run_id": base_result.source_run_id,
-        "response_hash": base_result.response_hash,
     }
     whatif = build_demo_artifact(
         wells=wells,

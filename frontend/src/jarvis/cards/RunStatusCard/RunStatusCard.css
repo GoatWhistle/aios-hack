@@ -1,0 +1,13 @@
+.jarvis-run-status { display: flex; flex-direction: column; gap: var(--space-2); }
+.jarvis-run-status-id, .jarvis-run-status-summary { margin: 0; color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.jarvis-run-status-verdict { margin: 0; font-weight: 650; }
+.jarvis-run-status-verdict[data-verdict='rejected'] { color: var(--color-error); }
+.jarvis-run-status-list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding-left: var(--space-4); }
+.jarvis-run-status-list li { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-xs); }
+.jarvis-run-status-list button { align-self: flex-start; min-height: var(--size-control-height); border: var(--border-hairline) solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; cursor: pointer; }
+.jarvis-run-status-npv p { margin: 0.25rem 0; }
+.jarvis-run-status-npv small { color: var(--color-text-muted); }
+.jarvis-run-status-checks { display: grid; gap: 0.5rem; padding-left: 1.25rem; }
+.jarvis-run-status-checks li { display: grid; gap: 0.2rem; }
+.jarvis-run-status-checks li[data-status='not_set'] { opacity: 0.82; }
+.jarvis-run-status-checks small { color: var(--color-text-muted); }

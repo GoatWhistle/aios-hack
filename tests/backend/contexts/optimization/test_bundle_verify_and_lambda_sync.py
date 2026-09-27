@@ -299,6 +299,8 @@ def test_production_bundle_verifies_against_release_json() -> None:
         pytest.skip("production release inventory is not installed")
 
     verdict = verify_bundle(root)
+    if not verdict.ok and all(item.status == "missing" for item in verdict.mismatched):
+        pytest.skip("production release inventory is present, but binary bundle files are not installed")
 
     assert verdict.mismatched == (), verdict.as_dict()["mismatches"]
     assert verdict.exit_code == 0
@@ -309,6 +311,9 @@ def test_corrupting_a_real_production_file_is_detected(tmp_path: Path) -> None:
     if not (source / "release.json").is_file():
         pytest.skip("production release inventory is not installed")
     inventory = json.loads((source / "release.json").read_text(encoding="utf-8"))
+    missing = [name for name in inventory["files_sha256"] if not (source / name).is_file()]
+    if missing:
+        pytest.skip("production bundle files are not installed: " + ", ".join(missing))
     copy = tmp_path / "bundle"
     copy.mkdir()
     shutil.copy2(source / "release.json", copy / "release.json")

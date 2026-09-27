@@ -22,8 +22,10 @@ import {
   readRunList,
   readSeries,
   readStatusBoard,
+  readSubmission,
   readSystemMap,
   readWell,
+  readWellComparison,
   readWellList
 } from '@/jarvis/cards/payloads';
 import { publicPath } from '@support/paths';
@@ -37,6 +39,7 @@ const readers: Record<string, (payload: unknown) => unknown> = {
   },
   well: readWell,
   'well-list': readWellList,
+  'well-comparison': readWellComparison,
   series: readSeries,
   rule: (payload: unknown) => readRule(payload) ?? readRuleSummary(payload),
   compare: readCompare,
@@ -48,11 +51,13 @@ const readers: Record<string, (payload: unknown) => unknown> = {
   doc: readDoc,
   'system-map': readSystemMap,
   'status-board': readStatusBoard,
+  submission: readSubmission,
   'run-list': readRunList,
   run: readRun,
   constraints: readConstraints,
   council: readCouncil,
-  physics: readPhysics
+  physics: readPhysics,
+  error: readError
 };
 
 interface FixtureCard {
@@ -94,6 +99,15 @@ describe('every fixture card passes its own validator', () => {
       expect(reader(card.payload), `${file} ${card.type}`).not.toBeNull();
     });
   }
+});
+
+describe('document source links', () => {
+  it('preserves a deployed deep link on indexed document hits', () => {
+    const payload = readDoc({
+      hits: [{ source: 'ARCHITECTURE.md', url: 'https://docs.example.org/ARCHITECTURE.md#overview' }]
+    });
+    expect(payload?.hits[0].url).toBe('https://docs.example.org/ARCHITECTURE.md#overview');
+  });
 });
 
 describe('metric payloads arrive as a list, as the contract says', () => {

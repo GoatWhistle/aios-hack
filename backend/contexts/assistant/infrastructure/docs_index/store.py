@@ -42,6 +42,15 @@ def collect_chunks(
         else:
             chunks.extend(chunks_of_plain(source, text, "docs"))
     if knowledge is not None:
+        portable_docs = knowledge / "docs"
+        if portable_docs.is_dir():
+            for path in sorted(portable_docs.rglob("*.md")):
+                try:
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+                source = f"knowledge/docs/{path.relative_to(portable_docs).as_posix()}"
+                chunks.extend(chunks_of_markdown(source, text, "docs"))
         chunks.extend(chunks_of_knowledge(knowledge))
     return chunks, collect_stamps(active, knowledge)
 

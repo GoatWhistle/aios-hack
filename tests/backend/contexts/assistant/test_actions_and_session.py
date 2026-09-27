@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from datetime import datetime, timedelta, timezone
+import json
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.session_store import SessionDisk
+from backend.contexts.assistant.domain.errors import SessionDiskError
 from backend.contexts.assistant.infrastructure.prompt import build_system_prompt
 from backend.contexts.assistant.domain.session import (
     Exchange,
@@ -33,9 +37,136 @@ def test_workspace_views_match_console_context() -> None:
     assert WORKSPACE_VIEWS == EXPECTED_VIEWS
 
 
+def test_session_events_and_summary_survive_a_store_restart(tmp_path) -> None:
+    root = tmp_path / "sessions"
+    disk = SessionDisk(root)
+    events = [
+        {"type": "ask", "question": "Скважина 10?"},
+        {"type": "card", "card": {"type": "well"}},
+        {"type": "caption", "text": "Подпись"},
+        {"type": "answer", "text": "Подробный ответ"},
+    ]
+    for event in events:
+        disk.append("persisted-session", event, "ru")
+    disk.set_summary("persisted-session", "Краткий контекст")
+
+    restarted_disk = SessionDisk(root)
+    restored = SessionStore(disk=restarted_disk).get("persisted-session")
+
+    assert restarted_disk.events("persisted-session") == events
+    assert restarted_disk.meta("persisted-session").summary == "Краткий контекст"
+    assert restored.questions() == ("Скважина 10?",)
+    assert restored.history[0].card_types == ("well",)
+    assert restored.history[0].caption == "Подпись"
+    assert restored.history[0].answer == "Подробный ответ"
+
+
+def test_session_disk_prunes_expired_sessions_and_keeps_recent_ones(tmp_path) -> None:
+    root = tmp_path / "sessions"
+    disk = SessionDisk(root, retention_days=30)
+    disk.append("old-session", {"type": "ask", "question": "старый вопрос"})
+    disk.append("recent-session", {"type": "ask", "question": "свежий вопрос"})
+
+    old_meta_path = root / "old-session" / "meta.json"
+    old_meta = json.loads(old_meta_path.read_text(encoding="utf-8"))
+    old_meta["last"] = (
+        datetime.now(tz=timezone.utc) - timedelta(days=31)
+    ).isoformat().replace("+00:00", "Z")
+    old_meta_path.write_text(json.dumps(old_meta), encoding="utf-8")
+
+    restarted = SessionDisk(root, retention_days=30)
+    rows = restarted.listing()
+    assert [row["id"] for row in rows] == ["recent-session"]
+    assert rows[0]["first_question"] == "свежий вопрос"
+    assert not (root / "old-session").exists()
+    assert (root / "recent-session" / "events.jsonl").is_file()
+
+
+def test_session_ttl_must_be_within_supported_range(tmp_path) -> None:
+    with pytest.raises(SessionDiskError, match="AIOS_JARVIS_SESSION_TTL_DAYS"):
+        SessionDisk(tmp_path / "sessions", retention_days=0)
+
+
+def test_expired_session_is_removed_from_memory_on_resume(tmp_path) -> None:
+    root = tmp_path / "sessions"
+    disk = SessionDisk(root, retention_days=30)
+    disk.append("resume-session", {"type": "ask", "question": "old question"})
+    sessions = SessionStore(disk=disk)
+    restored = sessions.get("resume-session")
+    assert restored.questions() == ("old question",)
+
+    meta_path = root / "resume-session" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["last"] = (
+        datetime.now(tz=timezone.utc) - timedelta(days=31)
+    ).isoformat().replace("+00:00", "Z")
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    disk.meta("resume-session").last = meta["last"]
+
+    resumed = sessions.get("resume-session")
+    assert resumed.questions() == ()
+    assert resumed.summary_text == ""
+    assert not (root / "resume-session").exists()
+
+
 def test_every_card_route_is_valid() -> None:
     for card_type, (workspace, view) in ROUTE_BY_CARD.items():
         assert check_route(workspace, view) == (workspace, view), card_type
+
+
+def test_field_map_action_opens_map_view_with_selected_well() -> None:
+    action = build_action("field-map", {"focus": ["19"], "edges": [{"neighbour": "10"}]}, "base")
+    assert action == {
+        "scenario": "base",
+        "workspace": "field",
+        "view": "maps",
+        "well": "19",
+    }
+
+
+def test_run_comparison_action_selects_run_without_treating_it_as_scenario() -> None:
+    action = build_action(
+        "compare",
+        {"a": {"id": "old-run"}, "b": {"id": "jarvis-policy-20260926"}},
+        "base",
+        "runs",
+    )
+    assert action is not None
+    assert action["run_id"] == "jarvis-policy-20260926"
+    assert action["scenario"] == "base"
+
+
+def test_run_backed_decision_action_keeps_link_provenance_separate() -> None:
+    payload = {
+        "run_id": "run-a",
+        "well": "19",
+        "step": 210,
+        "run_series": {"rows": [{"step": 210}]},
+        "connectivity_source": {"available": True, "scenario": "base"},
+    }
+    action = build_action("rule", payload, "base")
+    assert action == {
+        "companion_only": True,
+        "run_id": "run-a",
+        "scenario": "base",
+        "well": "19",
+        "step": 210,
+        "connections_available": True,
+    }
+
+
+def test_run_backed_decision_without_measured_links_does_not_offer_map_links() -> None:
+    payload = {
+        "run_id": "run-a",
+        "well": "19",
+        "step": 210,
+        "run_series": {"rows": [{"step": 210}]},
+        "connectivity_source": {"available": False},
+    }
+    action = build_action("rule", payload, "base")
+    assert action is not None
+    assert action["companion_only"] is True
+    assert "connections_available" not in action
 
 
 def test_unknown_workspace_refused() -> None:
@@ -112,6 +243,38 @@ def test_session_scene_ids_increment() -> None:
     assert session.next_scene_id() == "s-02"
 
 
+@pytest.mark.parametrize(
+    ("lang", "required"),
+    [
+        ("ru", "явно назови шаг и дату"),
+        ("en", "state its step and date"),
+    ],
+)
+def test_decision_prompt_uses_and_names_selected_step(lang: str, required: str) -> None:
+    prompt = build_system_prompt(ConsoleContext(step=96), lang)
+
+    assert required in prompt
+    assert "step is missing" in prompt if lang == "en" else "шага в контексте нет" in prompt
+
+
+@pytest.mark.parametrize(
+    ("lang", "follow_up_rule", "memory_rule"),
+    [
+        ("ru", "проверяй инструментами", "отвечай из памяти сессии"),
+        ("en", "must use tools", "answer from session memory"),
+    ],
+)
+def test_neighbour_follow_up_uses_current_tools_not_session_memory(
+    lang: str, follow_up_rule: str, memory_rule: str
+) -> None:
+    prompt = build_system_prompt(ConsoleContext(lang=lang), lang)
+
+    assert follow_up_rule in prompt
+    assert memory_rule in prompt
+    assert "neighbouring one\") - answer from the session memory" not in prompt
+    assert "«а у соседней») — отвечай из памяти" not in prompt
+
+
 def test_new_generation_cancels_the_previous() -> None:
     store = SessionStore()
     store.start("s3", ConsoleContext())
@@ -120,6 +283,20 @@ def test_new_generation_cancels_the_previous() -> None:
     assert store.is_cancelled("s3") is True
     store.start("s3", ConsoleContext())
     assert store.is_cancelled("s3") is False
+
+
+def test_old_generation_cannot_cancel_or_finish_the_new_request() -> None:
+    store = SessionStore()
+    session, old_generation = store.start("s4", ConsoleContext())
+    _, new_generation = store.start("s4", ConsoleContext(step=96))
+
+    assert session.generation == new_generation
+    assert store.is_cancelled("s4", old_generation) is True
+    assert store.is_cancelled("s4", new_generation) is False
+    store.finish("s4", old_generation)
+    assert session.running is True
+    assert store.cancel("s4", old_generation) is False
+    assert store.cancel("s4", new_generation) is True
 
 
 def test_session_requires_an_id() -> None:
@@ -188,4 +365,6 @@ def test_system_prompt_carries_console_context() -> None:
 
 
 def test_system_prompt_switches_language() -> None:
-    assert "английском" in build_system_prompt(ConsoleContext(), "en")
+    prompt = build_system_prompt(ConsoleContext(lang="en"), "en")
+    assert "You are Jarvis" in prompt
+    assert "The answer language is English" in prompt

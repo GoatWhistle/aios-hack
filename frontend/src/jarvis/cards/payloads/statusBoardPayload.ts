@@ -8,6 +8,9 @@ export const readStatusBoard = (payload: unknown): StatusBoardPayload | null => 
   }
   const champion = isRecord(payload.champion) ? payload.champion : {};
   const last = isRecord(payload.last_run) ? payload.last_run : {};
+  const diagnostics = isRecord(payload.diagnostics) ? payload.diagnostics : {};
+  const violations = isRecord(payload.violations) ? payload.violations : {};
+  const alertSource = isRecord(payload.diagnostics) ? diagnostics.rows : payload.alerts;
   return {
     champion: {
       recorded: champion.recorded === true,
@@ -28,14 +31,36 @@ export const readStatusBoard = (payload: unknown): StatusBoardPayload | null => 
     step: isNum(payload.step) ? payload.step : 0,
     date: strOrNull(payload.date),
     data: isStr(payload.data) ? payload.data : '',
-    alerts: list(payload.alerts)
+    generated_at: strOrNull(payload.generated_at),
+    alerts: list(alertSource)
       .filter(isRecord)
       .map((row) => ({
         pattern: strOrNull(row.pattern),
         name: strOrNull(row.name),
         well: strOrNull(row.well),
         severity: strOrNull(row.severity),
-        step: numOrNull(row.step)
+        step: numOrNull(row.step),
+        date: strOrNull(row.date),
+        window: Array.isArray(row.window) ? row.window.filter(isNum) : null,
+        source: strOrNull(row.source)
+      })),
+    diagnostics: {
+      recorded: diagnostics.recorded === true || (!isRecord(payload.diagnostics) && Array.isArray(payload.alerts)),
+      reason: strOrNull(diagnostics.reason)
+    },
+    violations: {
+      recorded: violations.recorded === true,
+      run_id: strOrNull(violations.run_id),
+      reason: strOrNull(violations.reason),
+      rows: list(violations.rows).filter(isRecord).filter((row) => isStr(row.kind)).map((row) => ({
+        kind: row.kind as string,
+        control_step: numOrNull(row.control_step),
+        well: strOrNull(row.well),
+        region: numOrNull(row.region),
+        detail: isStr(row.detail) ? row.detail : '',
+        value: numOrNull(row.value),
+        blocking: row.blocking === true
       }))
+    }
   };
 };

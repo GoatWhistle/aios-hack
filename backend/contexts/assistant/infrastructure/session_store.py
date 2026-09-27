@@ -5,10 +5,11 @@ from backend.contexts.assistant.domain.errors import (
 )
 
 import json
+import os
 import re
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from backend.shared.settings import Settings
@@ -21,6 +22,9 @@ EVENTS_FILE = "events.jsonl"
 META_FILE = "meta.json"
 ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 MAX_EVENTS = 4000
+SESSION_TTL_ENV_VAR = "AIOS_JARVIS_SESSION_TTL_DAYS"
+DEFAULT_SESSION_TTL_DAYS = 30
+MAX_SESSION_TTL_DAYS = 3650
 
 
 def now() -> str:
@@ -107,7 +111,24 @@ def _read_meta(path: Path) -> Meta | None:
 
 
 class SessionDisk:
-    def __init__(self, root: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        root: Path | str | None = None,
+        retention_days: int | None = None,
+    ) -> None:
+        if retention_days is None:
+            raw_ttl = os.environ.get(SESSION_TTL_ENV_VAR, "")
+            try:
+                retention_days = int(raw_ttl) if raw_ttl else DEFAULT_SESSION_TTL_DAYS
+            except ValueError as error:
+                raise SessionDiskError(
+                    f"{SESSION_TTL_ENV_VAR} must be an integer from 1 to {MAX_SESSION_TTL_DAYS}"
+                ) from error
+        if retention_days < 1 or retention_days > MAX_SESSION_TTL_DAYS:
+            raise SessionDiskError(
+                f"{SESSION_TTL_ENV_VAR} must be an integer from 1 to {MAX_SESSION_TTL_DAYS}"
+            )
+        self._retention = timedelta(days=retention_days)
         self._root = Path(root) if root is not None else default_sessions_root()
         self._lock = threading.Lock()
         self._meta: dict[str, Meta] = {}
@@ -119,6 +140,7 @@ class SessionDisk:
 
     def reload(self) -> None:
         collected: dict[str, Meta] = {}
+        cutoff = datetime.now(tz=timezone.utc) - self._retention
         if self._root.is_dir():
             for entry in sorted(self._root.iterdir()):
                 if not entry.is_dir():
@@ -128,23 +150,68 @@ class SessionDisk:
                     continue
                 meta = _read_meta(path)
                 if meta is not None:
+                    if self._is_expired(meta, cutoff):
+                        self._delete_directory(entry)
+                        continue
                     collected[meta.session_id] = meta
         with self._lock:
             self._meta = collected
 
     def count(self) -> int:
+        self.prune_expired()
         with self._lock:
             return len(self._meta)
 
     def listing(self) -> list[dict[str, Any]]:
+        self.prune_expired()
         with self._lock:
             rows = [meta.as_row() for meta in self._meta.values()]
         rows.sort(key=lambda row: str(row["last"]), reverse=True)
         return rows
 
     def meta(self, session_id: str) -> Meta | None:
+        self.prune_expired()
         with self._lock:
             return self._meta.get(session_id)
+
+    @staticmethod
+    def _is_expired(meta: Meta, cutoff: datetime) -> bool:
+        try:
+            last = datetime.fromisoformat(meta.last.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        return last < cutoff
+
+    @staticmethod
+    def _delete_directory(directory: Path) -> None:
+        if not directory.is_dir():
+            return
+        for path in sorted(directory.iterdir(), reverse=True):
+            try:
+                if path.is_file():
+                    path.unlink()
+            except OSError:
+                pass
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
+    def prune_expired(self) -> None:
+        cutoff = datetime.now(tz=timezone.utc) - self._retention
+        with self._lock:
+            expired = [
+                meta.session_id
+                for meta in self._meta.values()
+                if self._is_expired(meta, cutoff)
+            ]
+        for identifier in expired:
+            try:
+                self.remove(identifier)
+            except SessionDiskError:
+                continue
 
     def directory(self, session_id: str) -> Path:
         return self._root / check_id(session_id)
@@ -236,16 +303,7 @@ class SessionDisk:
             existed = self._meta.pop(identifier, None) is not None
         if not directory.is_dir():
             return existed
-        for path in sorted(directory.iterdir(), reverse=True):
-            try:
-                if path.is_file():
-                    path.unlink()
-            except OSError:
-                pass
-        try:
-            directory.rmdir()
-        except OSError:
-            pass
+        self._delete_directory(directory)
         return True
 
     def exchanges(self, session_id: str) -> Iterator[Mapping[str, Any]]:

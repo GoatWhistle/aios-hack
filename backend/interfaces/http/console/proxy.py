@@ -81,10 +81,22 @@ def _relay(handler: Any, status: int, headers: Any, stream: Any) -> None:
     handler.send_header("Transfer-Encoding", "chunked")
     handler.end_headers()
     while True:
-        block = stream.read(STREAM_CHUNK)
+        # read(n) waits to fill n bytes, which can hold a small SSE event until
+        # the next event or the end of a long-running response.
+        block = (
+            stream.read1(STREAM_CHUNK)
+            if hasattr(stream, "read1")
+            else stream.read(STREAM_CHUNK)
+        )
         if not block:
             break
-        handler.wfile.write(f"{len(block):X}\r\n".encode("ascii") + block + b"\r\n")
+        try:
+            handler.wfile.write(f"{len(block):X}\r\n".encode("ascii") + block + b"\r\n")
+            handler.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+    try:
+        handler.wfile.write(b"0\r\n\r\n")
         handler.wfile.flush()
-    handler.wfile.write(b"0\r\n\r\n")
-    handler.wfile.flush()
+    except (BrokenPipeError, ConnectionResetError):
+        return

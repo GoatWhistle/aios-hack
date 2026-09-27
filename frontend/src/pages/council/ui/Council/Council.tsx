@@ -128,6 +128,9 @@ export const Council = () => {
     return <ViewStatus kind="loading" title={t('council.loading')} />;
   }
   if (index.status === 'error') {
+    if (index.notFound === true) {
+      return <ViewStatus kind="empty" title={t('council.unavailable')} hint={t('council.unavailableHint')} />;
+    }
     return (
       <ViewStatus kind="error" title={t('council.error')} hint={t('council.errorHint')} />
     );

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,6 +12,7 @@ from backend.contexts.assistant.infrastructure.system_map import (
 )
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure
 from backend.contexts.assistant.application.tools.patterns import find_patterns
+from backend.contexts.assistant.application.tools.runs import run_status
 from backend.shared.settings import Settings
 from backend.shared.paths import repository_root
 
@@ -146,11 +148,16 @@ def _last_run(context: ToolContext) -> dict[str, Any]:
     }
 
 
-def _alerts(context: ToolContext) -> list[dict[str, Any]]:
+def _alerts(context: ToolContext) -> dict[str, Any]:
     try:
         card = find_patterns(context, {"limit": ALERT_LIMIT})
-    except Exception:
-        return []
+    except ToolFailure as error:
+        message = str(error)
+        if "detectors found no anomaly" in message:
+            return {"recorded": True, "reason": None, "rows": []}
+        return {"recorded": False, "reason": message, "rows": []}
+    except Exception as error:
+        return {"recorded": False, "reason": f"diagnostic scan failed: {error}", "rows": []}
     rows = card.payload.get("patterns") or ()
     collected: list[dict[str, Any]] = []
     for row in rows[:ALERT_LIMIT]:
@@ -161,9 +168,13 @@ def _alerts(context: ToolContext) -> list[dict[str, Any]]:
                 "well": row.get("well"),
                 "severity": row.get("severity"),
                 "step": row.get("step"),
+                "date": row.get("date"),
+                "window": row.get("window"),
+                "inputs": row.get("inputs"),
+                "source": card.provenance,
             }
         )
-    return collected
+    return {"recorded": True, "reason": None, "rows": collected}
 
 
 def system_status(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
@@ -179,7 +190,9 @@ def system_status(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         "date": index.dates[step] if step < len(index.dates) else None,
         "steps": index.step_count(),
         "data": index.provenance(),
-        "alerts": _alerts(context),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "diagnostics": _alerts(context),
+        "violations": _latest_violations(context),
         "not_recorded_marker": NOT_RECORDED,
     }
     return Card(
@@ -188,3 +201,19 @@ def system_status(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         payload=payload,
         provenance=PROVENANCE_RUNS,
     )
+
+
+def _latest_violations(context: ToolContext) -> dict[str, Any]:
+    try:
+        card = run_status(context, {})
+    except ToolFailure as error:
+        return {"recorded": False, "run_id": None, "reason": str(error), "rows": []}
+    status = card.payload.get("violation_locations") or {}
+    if not isinstance(status, Mapping):
+        return {"recorded": False, "run_id": card.payload.get("run_id"), "reason": "violation location status is invalid", "rows": []}
+    return {
+        "recorded": status.get("recorded") is True,
+        "run_id": card.payload.get("run_id"),
+        "reason": status.get("reason"),
+        "rows": list(status.get("rows") or ())[:ALERT_LIMIT],
+    }

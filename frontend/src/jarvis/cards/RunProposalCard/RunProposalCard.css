@@ -1,0 +1,4 @@
+.jarvis-run-proposal { display: grid; gap: .55rem; }
+.jarvis-run-proposal p { margin: 0; overflow-wrap: anywhere; }
+.jarvis-run-proposal button, .jarvis-run-proposal select { font: inherit; }
+.jarvis-run-proposal progress { width: 100%; }

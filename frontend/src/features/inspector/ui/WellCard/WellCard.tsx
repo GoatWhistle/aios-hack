@@ -3,6 +3,7 @@ import { useDataset } from '@/entities';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { AskJarvis } from '@/features/ask-jarvis/ui';
+import { ExplainButton } from '@/features/ask-jarvis/ui/ExplainButton';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
 import { formatStepDate } from '@/shared/lib/format';
 import { ConnectivityBlock } from '@/features/inspector/ui/WellCard/ConnectivityBlock/ConnectivityBlock';
@@ -91,6 +92,7 @@ export const WellCard = ({ well }: WellCardProps) => {
           </section>
           <section className="wellcard-section">
             <h4 className="wellcard-section-title">{t('wellcard.decision.title')}</h4>
+            <ExplainButton well={well} step={stepIndex} />
             {trace.status === 'ready' && step && (
               <TraceBlock records={records} well={well} step={step.control_step} />
             )}

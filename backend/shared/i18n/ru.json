@@ -17,6 +17,8 @@
   "runs.request.unknown_mode": "Неизвестный вид расчёта.",
   "runs.request.unsupported_parameter": "В условиях есть неподдерживаемый параметр инфраструктуры.",
   "runs.status.busy": "Расчёт уже выполняется. Дождитесь его окончания.",
+  "runs.status.cancel_requested": "Отмена запрошена…",
+  "runs.status.cancelled": "Расчёт отменён.",
   "runs.status.completed_search": "Прогноз готов. Для подтверждения запустите OPM.",
   "runs.status.completed_verify": "Расчёт OPM завершён.",
   "runs.status.completed_verify_sound": "OPM завершён. Все проверки пройдены.",
@@ -33,6 +35,7 @@
   "showcase.notice.graph_lambda_absent": "Базовый прогон OPM, но связность λ не измерена: серия возмущённых прогонов не выполнялась, рёбер нет",
   "showcase.notice.graph_lambda_measured": "Настоящий расчёт: базовый прогон OPM, связность λ измерена планом эксперимента на возмущённых прогонах",
   "showcase.notice.hierarchy": "Настоящий журнал решений: уровни поля, участка и скважины получены прогоном политики (policy/hierarchy.run_step) на отклике сценария",
+  "showcase.notice.hierarchy_replay": "Повторный прогон политики: это не записанная причина сохранённого расписания",
   "showcase.notice.plan": "Наш план: θ* найдена CMA-ES; отклик предсказан ансамблем из трёх суррогатов, ЧДД — отдельной economic head. OPM ещё не подтверждён",
   "showcase.notice.plan_unstable": "Наш план: θ* найдена CMA-ES; отклик предсказан ансамблем из трёх суррогатов, ЧДД — отдельной economic head. OPM ещё не подтверждён; policy fixed point нестабилен",
   "showcase.notice.real": "Настоящий расчёт: базовый прогон OPM без перекладки, эталонная методика ЧДД"

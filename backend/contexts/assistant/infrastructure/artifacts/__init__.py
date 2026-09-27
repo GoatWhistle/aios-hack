@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from backend.contexts.assistant.domain.errors import ArtifactError, RunError
 from backend.contexts.assistant.infrastructure.artifacts.runs import (
+    ALTERNATIVE_STATUSES,
     CLAIMED_NPV_FIELDS,
     CLAIMED_NPV_FILE,
     CONSTRAINTS_REPORT_FILE,
@@ -17,6 +18,7 @@ from backend.contexts.assistant.infrastructure.artifacts.runs import (
     RunRecord,
     RunStore,
     default_runs_root,
+    import_decision_evidence,
 )
 from backend.contexts.assistant.infrastructure.artifacts.scenarios import (
     DATA_ENV_VAR,
@@ -30,6 +32,7 @@ from backend.contexts.assistant.infrastructure.artifacts.scenarios import (
 )
 
 __all__ = [
+    "ALTERNATIVE_STATUSES",
     "CLAIMED_NPV_FIELDS",
     "CLAIMED_NPV_FILE",
     "CONSTRAINTS_REPORT_FILE",
@@ -55,4 +58,5 @@ __all__ = [
     "WellSteps",
     "default_data_root",
     "default_runs_root",
+    "import_decision_evidence",
 ]

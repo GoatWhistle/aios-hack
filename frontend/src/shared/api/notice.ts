@@ -8,6 +8,7 @@ export const NOTICE_KEYS = [
   'showcase.notice.graph_lambda_absent',
   'showcase.notice.graph_lambda_measured',
   'showcase.notice.hierarchy',
+  'showcase.notice.hierarchy_replay',
   'showcase.notice.plan',
   'showcase.notice.plan_unstable',
   'showcase.notice.real'

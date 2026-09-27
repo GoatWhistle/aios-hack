@@ -71,9 +71,10 @@ SYSTEM_TOOLS: tuple[ToolDefinition, ...] = (
     ToolDefinition(
         name="run_history",
         description=(
-            "The list of calculation runs, newest first: status, predicted and "
-            "verified NPV, soundness, search strategy and seed, read from the "
-            "manifests in the run directories."
+            "The list of calculation runs and registered scenarios: status, predicted and "
+            "verified NPV, soundness, origin, scenario role and whether recorded "
+            "generation reasons are available. A submitted plan with a missing original "
+            "run manifest remains listed with its missing-source status."
         ),
         schema=obj(
             {
@@ -87,8 +88,10 @@ SYSTEM_TOOLS: tuple[ToolDefinition, ...] = (
         name="run_detail",
         description=(
             "One run in full: manifest, provenance, validation, the constraints "
-            "report, the physics report and the submission package. Without "
-            "run_id the latest run is read."
+            "report, the physics report, submission package and an evidence-linked "
+            "engineering conclusion in Markdown. Registered "
+            "plans with no original manifest return available bundle facts and "
+            "state which source records are missing. Without run_id the latest run is read."
         ),
         schema=obj({"run_id": {"type": "string"}}),
         card_type="run",

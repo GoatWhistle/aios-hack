@@ -6,13 +6,18 @@ from typing import Any, Sequence
 
 from backend.contexts.assistant.domain.errors import DocsIndexError
 from backend.contexts.assistant.infrastructure.docs_index.models import Chunk, Hit, Stamp
+from backend.contexts.assistant.infrastructure.docs_index.chunking import (
+    is_historical_source,
+    is_plan_source,
+    is_snapshot_source,
+)
 from backend.contexts.assistant.infrastructure.docs_index.text import (
     build_snippet,
     tokenize,
 )
 
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 
 BM25_K1 = 1.5
@@ -32,6 +37,8 @@ SCOPES: tuple[str, ...] = ("docs", "knowledge", "all")
 
 PLANNING_SOURCES: tuple[str, ...] = (
     "JARVIS_V2.md",
+    "JARVIS_BACKLOG.md",
+    "JARVIS_RUNS_20260926.md",
     "FINAL_PLAN.md",
     "BACKLOG.md",
     "AUDIT_PLAN_2026-09-08.md",
@@ -47,7 +54,16 @@ HEADING_WEIGHT = 2
 
 def _source_weight(source: str) -> float:
     name = source.replace("\\", "/").rsplit("/", 1)[-1]
-    return PLANNING_PENALTY if name in PLANNING_SOURCES else 1.0
+    return (
+        PLANNING_PENALTY
+        if (
+            name in PLANNING_SOURCES
+            or is_historical_source(source)
+            or is_plan_source(source)
+            or is_snapshot_source(source)
+        )
+        else 1.0
+    )
 
 
 def _weighted(chunk: Chunk) -> Counter[str]:

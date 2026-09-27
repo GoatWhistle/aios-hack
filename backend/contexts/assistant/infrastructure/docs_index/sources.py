@@ -109,6 +109,13 @@ def collect_stamps(roots: Sequence[Path], knowledge: Path | None) -> list[Stamp]
             path = knowledge / name
             if path.is_file():
                 collected.append(_stamp_of(path))
+        documents = knowledge / "docs"
+        if documents.is_dir():
+            collected.extend(
+                _stamp_of(path)
+                for path in sorted(documents.rglob("*.md"))
+                if path.is_file()
+            )
     return collected
 
 

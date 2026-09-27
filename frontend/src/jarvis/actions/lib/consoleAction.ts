@@ -4,10 +4,14 @@ export interface ConsoleAction {
   workspace?: Workspace;
   view?: WorkspaceView;
   scenario?: string;
+  run_id?: string | null;
+  companion_only?: boolean;
+  connections_available?: boolean;
   step?: number;
   well?: string | null;
   play?: boolean;
   spotlight?: string;
+  restore_previous?: boolean;
 }
 
 export const isWorkspace = (value: unknown): value is Workspace =>

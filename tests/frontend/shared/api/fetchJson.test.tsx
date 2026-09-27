@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from '@testing-library/react';
 import { DEFAULT_SCENARIO_ID, isSafeScenarioId, scenarioDataUrl } from '@/entities/scenarios/model/ScenarioContext';
 import { fetchJson, InvalidPayloadError } from '@/shared/api/fetchJson';
 import { loadJson, readCachedJson } from '@/shared/api/jsonCache';
@@ -138,6 +139,45 @@ describe('scenario url safety', () => {
 });
 
 describe('a stale scenario response cannot land on the new scenario', () => {
+  it('does not expose a ready payload from the previous url after switching', async () => {
+    const { fireEvent, render, screen, waitFor } = await import('@testing-library/react');
+    const { useState } = await import('react');
+    const { useJsonResource } = await import('@/shared/api/useJsonResource');
+    let releaseNext: (() => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.includes('/next/')
+          ? new Promise((resolve) => {
+              releaseNext = () =>
+                resolve({ ok: true, json: () => Promise.resolve({ ok: true, id: 'next' }) });
+            })
+          : respond({ ok: true, id: 'base' })
+      )
+    );
+    const isTagged = (data: unknown): data is { ok: true; id: string } =>
+      typeof data === 'object' && data !== null && typeof (data as { id?: unknown }).id === 'string';
+    const Probe = () => {
+      const [url, setUrl] = useState('/data/base/x.json');
+      const state = useJsonResource(url, isTagged);
+      return (
+        <div>
+          <button type="button" onClick={() => setUrl('/data/next/x.json')}>switch</button>
+          <span data-testid="value">{state.status === 'ready' ? state.data.id : state.status}</span>
+        </div>
+      );
+    };
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('base'));
+    fireEvent.click(screen.getByText('switch'));
+    expect(screen.getByTestId('value').textContent).toBe('loading');
+    await act(async () => {
+      releaseNext?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('next'));
+  });
+
   it('keeps the resource on the url it was last asked for', async () => {
     const { act, fireEvent, render, screen, waitFor } = await import('@testing-library/react');
     const { useState } = await import('react');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_ORBIT_CARDS, activeScene, emptyScenes } from '@/jarvis/model/scenes';
+import { MAX_ORBIT_CARDS, activeScene, emptyScenes, scenesReducer } from '@/jarvis/model/scenes';
 import type { JarvisEvent } from '@/jarvis/transport/events';
 import { card, opened, play } from '@support/scenesFixtures';
 
@@ -10,6 +10,36 @@ describe('a scene starts when the backend announces it', () => {
     expect(state.activeIndex).toBe(0);
     expect(activeScene(state)?.question).toBe('почему');
     expect(activeScene(state)?.context.step).toBe(72);
+  });
+
+  it('replaces the singleton briefing when its scenario changes', () => {
+    const briefing = (scenario: string): JarvisEvent => ({
+      type: 'scene', scene_id: 'briefing', question: '',
+      context: { scenario, step: 0, date: '2007-01-01', selected_well: null, workspace: 'overview', view: 'fund' }
+    });
+    const first = scenesReducer(emptyScenes, briefing('base'));
+    const next = scenesReducer(first, briefing('candidate'));
+    expect(next.scenes).toHaveLength(1);
+    expect(activeScene(next)?.context.scenario).toBe('candidate');
+  });
+
+  it('refreshes an earlier briefing without changing the active user answer', () => {
+    const briefing: JarvisEvent = {
+      type: 'scene', scene_id: 'briefing', question: '',
+      context: { scenario: 'base', step: 0, date: '2007-01-01', selected_well: null, workspace: 'overview', view: 'fund' }
+    };
+    const first = scenesReducer(emptyScenes, briefing);
+    const user = scenesReducer(first, {
+      type: 'scene', scene_id: 'ask-1', question: 'Почему так?',
+      context: { scenario: 'base', step: 0, date: '2007-01-01', selected_well: null, workspace: 'overview', view: 'fund' }
+    });
+    const refresh = scenesReducer(user, {
+      ...briefing,
+      context: { ...briefing.context, scenario: 'candidate' }
+    });
+    expect(refresh.scenes).toHaveLength(2);
+    expect(activeScene(refresh)?.question).toBe('Почему так?');
+    expect(refresh.scenes[0].context.scenario).toBe('candidate');
   });
 
   it('puts the sphere into thinking the moment the scene opens', () => {

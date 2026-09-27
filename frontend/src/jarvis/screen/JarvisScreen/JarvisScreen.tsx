@@ -13,6 +13,7 @@ import { Orbit } from '@/jarvis/scene/Orbit/Orbit';
 import { SceneStack } from '@/jarvis/scene/SceneStack/SceneStack';
 import { SceneStatus } from '@/jarvis/scene/SceneStatus/SceneStatus';
 import { Suggestions } from '@/jarvis/scene/Suggestions/Suggestions';
+import { WalkthroughControls } from '@/jarvis/scene/WalkthroughControls/WalkthroughControls';
 import { STAGE_SLOT_ID } from '@/jarvis/scene/lib/stageSlot';
 import { activeScene } from '@/jarvis/model/scenes';
 import { useFocusTrap } from '@/jarvis/provider/useFocusTrap';
@@ -25,12 +26,17 @@ export const JarvisScreen = () => {
   const { lang, t } = useI18n();
   const {
     scenes,
+    askContext,
     askQuestion,
+    cancel,
     selectScene,
     close,
     transition,
     applyAction,
-    capabilities
+    canRestorePrevious,
+    showCompanion,
+    capabilities,
+    briefingLoading
   } = useJarvisSessionContext();
   const {
     speakEnabled,
@@ -106,9 +112,10 @@ export const JarvisScreen = () => {
   const onOpen = useCallback(
     (action: ConsoleAction) => {
       applyAction(action);
+      showCompanion();
       close();
     },
-    [applyAction, close]
+    [applyAction, showCompanion, close]
   );
 
   return (
@@ -120,13 +127,19 @@ export const JarvisScreen = () => {
       aria-label={t('jarvis-screen.dialogLabel')}
     >
       <JarvisDoor />
-      <ContextRibbon speaking={voice.speaking} onStop={voice.stop} onReadAll={voice.readAll} />
+      <ContextRibbon
+        speaking={voice.speaking}
+        onStop={voice.stop}
+        onReadAll={voice.readAll}
+        canRestorePrevious={canRestorePrevious}
+        onRestorePrevious={() => applyAction({ restore_previous: true })}
+      />
       <div className="jarvis-screen-body">
         <div className="jarvis-screen-orbit">
           <span className="jarvis-screen-slot" id={STAGE_SLOT_ID} aria-hidden="true" />
           <LiveTranscript />
           <SceneStack scenes={scenes.scenes} activeIndex={scenes.activeIndex} />
-          {scene === null ? null : <Orbit cards={scene.cards} onOpen={onOpen} />}
+          {scene === null ? null : <Orbit cards={scene.cards} onOpen={onOpen} briefingLoading={scene.question === '' && (scenes.status !== null || briefingLoading)} />}
         </div>
         <div className="jarvis-screen-say">
           {scene === null ? (
@@ -153,6 +166,15 @@ export const JarvisScreen = () => {
           onSelect={selectScene}
         />
         <Suggestions items={scenes.suggestions} onPick={askQuestion} />
+        <WalkthroughControls
+          scenes={scenes}
+          context={askContext}
+          busy={scenes.status !== null}
+          askQuestion={askQuestion}
+          selectScene={selectScene}
+          applyAction={applyAction}
+          cancel={cancel}
+        />
         <InputDock onAsk={askQuestion} focusSignal={focusSignal} history={history} />
       </footer>
     </div>

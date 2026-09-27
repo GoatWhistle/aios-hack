@@ -11,7 +11,7 @@ services:
     image: aios:latest
     command: ["tests", "-q"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
       - ./out:/out
 
   npv:
@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile
     command: ["npv"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
       - ./out:/out
 
   emit:
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
     command: ["emit"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
       - ./out:/out
 
   selfcheck:
@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile
     command: ["selfcheck"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
 
   webdata:
     image: aios:latest
@@ -53,8 +53,8 @@ services:
       dockerfile: Dockerfile
     command: ["webdata"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
-      - ./data:/app/data:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
+      - ${AIOS_RUNTIME_DATA:-./data}:/app/data:ro
       - ${AIOS_UI_DATA:-./frontend/public/data}:/app/frontend/public/data
 
   web:
@@ -70,10 +70,13 @@ services:
         condition: service_started
     environment:
       AIOS_JARVIS_UPSTREAM: ${AIOS_JARVIS_UPSTREAM:-http://jarvis:8010}
+      AIOS_JARVIS_WEB_RUNS: ${AIOS_JARVIS_WEB_RUNS:-/out/web-runs}
+      AIOS_UI_DATA: /app/frontend/dist/data
     ports:
       - "${AIOS_PORT:-8000}:8000"
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
+      - ${AIOS_RUNTIME_DATA:-./data}:/app/data:ro
       - ./out:/out
       # JSON-витрина генерируется локально и не входит в image. Подключаем её
       # прямо к каталогу статики, откуда frontend запрашивает /data/*.json.
@@ -95,24 +98,38 @@ services:
       webdata:
         condition: service_completed_successfully
     environment:
+      AIOS_JARVIS_HOST: 0.0.0.0
       JARVIS_PROVIDER: ${JARVIS_PROVIDER:-openrouter}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      JARVIS_MODEL: ${JARVIS_MODEL:-anthropic/claude-sonnet-4.5}
+      JARVIS_API_KEY: ${JARVIS_API_KEY:-}
+      JARVIS_BASE_URL: ${JARVIS_BASE_URL:-}
+      JARVIS_MODEL: ${JARVIS_MODEL:-}
       JARVIS_MAX_TOKENS: ${JARVIS_MAX_TOKENS:-2400}
-      JARVIS_TTS_VOICE_RU: ${JARVIS_TTS_VOICE_RU:-ru-RU-SvetlanaNeural}
-      JARVIS_TTS_VOICE_EN: ${JARVIS_TTS_VOICE_EN:-en-US-AriaNeural}
+      JARVIS_MAX_CONCURRENT_REQUESTS: ${JARVIS_MAX_CONCURRENT_REQUESTS:-8}
+      AIOS_JARVIS_VOICE_RU: ${AIOS_JARVIS_VOICE_RU:-ru-RU-DmitryNeural}
+      AIOS_JARVIS_VOICE_EN: ${AIOS_JARVIS_VOICE_EN:-en-US-AndrewNeural}
       JARVIS_STT_MODEL: ${JARVIS_STT_MODEL:-google/gemini-2.5-flash}
       AIOS_UI_DATA: /app/frontend/dist/data
       AIOS_JARVIS_KNOWLEDGE: /app/frontend/public/jarvis/knowledge
       AIOS_JARVIS_DOCS: ${AIOS_JARVIS_DOCS:-/app;/data/docs}
+      AIOS_JARVIS_DOCS_BASE_URL: ${AIOS_JARVIS_DOCS_BASE_URL:-}
       AIOS_JARVIS_SESSIONS: ${AIOS_JARVIS_SESSIONS:-/out/jarvis/sessions}
+      AIOS_JARVIS_SESSION_TTL_DAYS: ${AIOS_JARVIS_SESSION_TTL_DAYS:-30}
+      AIOS_JARVIS_RUNS: ${AIOS_JARVIS_RUNS:-/out/jarvis-evidence-20260926/runs}
+      AIOS_JARVIS_WEB_RUNS: ${AIOS_JARVIS_WEB_RUNS:-/out/web-runs}
+      AIOS_JARVIS_TTS_CACHE: ${AIOS_JARVIS_TTS_CACHE:-/out/jarvis/tts}
       AIOS_OUT_DIR: /out
     ports:
-      - "${AIOS_JARVIS_PORT:-8010}:8010"
+      - "${AIOS_JARVIS_BIND_ADDRESS:-127.0.0.1}:${AIOS_JARVIS_PORT:-8010}:8010"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - ${AIOS_UI_DATA:-./frontend/public/data}:/app/frontend/dist/data:ro
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
       - ./out:/out
 
   surrogate-check:
@@ -123,6 +140,6 @@ services:
       dockerfile: Dockerfile
     command: ["aios", "surrogate-check", "--output", "/out/surrogate-runtime.json"]
     volumes:
-      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ${AIOS_DOCS:-./../aios-hack/docs}:/data/docs:ro
       - ./data:/app/data:ro
       - ./out:/out

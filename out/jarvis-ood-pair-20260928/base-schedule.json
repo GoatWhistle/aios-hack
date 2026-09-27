@@ -1,0 +1,9 @@
+{
+  "reference": "base-case-schedule+surrogate-prediction",
+  "base_schedule_ood_score": 1.7781560464207802,
+  "threshold": 11.416658306122834,
+  "vector_sha256": "3a6ffbfae66819c03ae7ebd4925bec28305d69ded2fc106162f33148de920fca",
+  "width": 4406,
+  "dataset_hash": "ebd319e12140bddc1c61818d4d63a37136599e93cc25e286f035680d6ebfe6a4",
+  "model_dataset_hash": "ebd319e12140bddc1c61818d4d63a37136599e93cc25e286f035680d6ebfe6a4"
+}

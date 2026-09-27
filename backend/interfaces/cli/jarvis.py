@@ -21,6 +21,8 @@ from backend.interfaces.http.assistant.server import (
 )
 from backend.interfaces.cli.runner import run as run_cli
 from backend.shared.settings import Settings
+from backend.shared.env_file import load_env_file
+from backend.shared.paths import project_root
 
 HOST_ENV_VAR = "AIOS_JARVIS_HOST"
 PORT_ENV_VAR = "AIOS_JARVIS_PORT"
@@ -35,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Jarvis service: HTTP with Server-Sent Events over the JSON data "
             "showcase and the curated knowledge base."
         ),
+    )
+    parser.add_argument(
+        "--env-file", type=Path, default=None,
+        help="dotenv file; defaults to repository .env.local when present; "
+        "exported variables take precedence",
     )
     parser.add_argument(
         "--host",
@@ -104,6 +111,12 @@ def record(store: ArtifactStore, knowledge: Knowledge, root: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    early = argparse.ArgumentParser(add_help=False)
+    early.add_argument("--env-file", type=Path, default=None)
+    selected, _ = early.parse_known_args(argv)
+    env_path = selected.env_file or project_root() / ".env.local"
+    if selected.env_file is not None or env_path.is_file():
+        load_env_file(env_path)
     args = build_parser().parse_args(argv)
     store = ArtifactStore(args.data) if args.data is not None else ArtifactStore()
     knowledge = (

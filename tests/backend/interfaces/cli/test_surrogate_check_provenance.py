@@ -140,6 +140,8 @@ def test_strict_desync_exits_with_error_code(monkeypatch, capsys) -> None:
 
 
 def test_check_payload_carries_blend_and_lambda_sync(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(surrogate_check, "model_z_dir", lambda: tmp_path)
+    monkeypatch.setattr(surrogate_check, "normatives_xlsx", lambda: tmp_path / "normatives.xlsx")
     provenance = MappingProxyType(
         {
             "npv_physical_weight": repr(0.2),

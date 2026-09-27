@@ -1,6 +1,6 @@
 {
   "orbitLabel": "Answer cards",
-  "railBead": "Scene: {question}",
+  "railBead": "Scene: {question}. Context: {context}",
   "railLabel": "Memory rail",
   "railNoCards": "no cards",
   "sessionNew": "New session",

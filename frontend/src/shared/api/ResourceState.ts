@@ -1,6 +1,6 @@
 export type ResourceState<T> =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; notFound?: boolean }
   | { status: 'ready'; data: T };
 
 export const isReady = <T,>(

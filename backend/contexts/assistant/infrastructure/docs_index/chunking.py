@@ -15,18 +15,108 @@ from backend.contexts.assistant.infrastructure.docs_index.text import (
 from backend.contexts.assistant.infrastructure.knowledge import KnowledgeStore
 
 
+HISTORICAL_SOURCES = frozenset(
+    {
+        "AUDIT_PLAN_2026-09-08.md",
+        "BACKLOG.md",
+        "DISCUSSIONS.md",
+        "FINAL_PLAN.md",
+        "JARVIS_V2.md",
+        "TASK.md",
+    }
+)
+_HISTORICAL_SOURCE_NAMES = frozenset(item.casefold() for item in HISTORICAL_SOURCES)
+
+SNAPSHOT_SOURCES = frozenset(
+    {
+        "ARCHITECTURE.md",
+        "ARCHITECTURE_DIAGRAM.md",
+        "JARVIS_CONTEXT.md",
+        "JARVIS_RUNS_20260926.md",
+        "PROJECT_CONTEXT.md",
+        "README.md",
+    }
+)
+_SNAPSHOT_SOURCE_NAMES = frozenset(item.casefold() for item in SNAPSHOT_SOURCES)
+
+HISTORICAL_NOTICE = (
+    "[ИСТОРИЧЕСКИЙ ИСТОЧНИК / HISTORICAL SOURCE: этот материал отражает план,"
+    " аудит или состояние на момент подготовки и не подтверждает текущее поведение."
+    " Сверяйте текущие возможности с актуальным контекстом и кодом. / This is a"
+    " point-in-time plan, audit, or status record and does not establish current"
+    " system behavior. Verify current capabilities against the current context and code.]"
+)
+SNAPSHOT_NOTICE = (
+    "[СНИМОК СОСТОЯНИЯ / POINT-IN-TIME SNAPSHOT: этот документ фиксирует состояние"
+    " на дату или в момент подготовки. Он полезен как контекст, но не доказывает"
+    " текущее поведение; сверяйте его с актуальными документами, конфигурацией и кодом."
+    " / This document records a point-in-time state. Use it as context, not as proof of"
+    " current behavior; verify against current documentation, configuration, and code.]"
+)
+PLAN_SOURCES = frozenset({"JARVIS_BACKLOG.md"})
+_PLAN_SOURCE_NAMES = frozenset(item.casefold() for item in PLAN_SOURCES)
+PLAN_NOTICE = (
+    "[ПЛАН / PLAN: этот документ описывает желаемый объём и статус задач, а не"
+    " подтверждённые функции продукта. Проверяйте реализацию по текущему коду и тестам."
+    " / This document describes intended work and task status, not verified product"
+    " behavior. Check implementation against current code and tests.]"
+)
+
+
+def is_historical_source(source: str) -> bool:
+    path = source.replace("\\", "/").casefold()
+    name = path.rsplit("/", 1)[-1]
+    return (
+        name in _HISTORICAL_SOURCE_NAMES
+        or path.startswith("checkpoints/")
+        or path.startswith("8sept-audit/")
+        or path.endswith(".txt")
+    )
+
+
+def is_snapshot_source(source: str) -> bool:
+    path = source.replace("\\", "/").casefold()
+    name = path.rsplit("/", 1)[-1]
+    if name == "readme.md":
+        return "/" not in path
+    return name in _SNAPSHOT_SOURCE_NAMES
+
+
+def is_plan_source(source: str) -> bool:
+    name = source.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    return name in _PLAN_SOURCE_NAMES
+
+
 def chunks_of_markdown(source: str, text: str, scope: str) -> list[Chunk]:
     collected: list[Chunk] = []
+    historical = is_historical_source(source)
+    plan = not historical and is_plan_source(source)
+    snapshot = not historical and not plan and is_snapshot_source(source)
+    temporal_notice = (
+        HISTORICAL_NOTICE
+        if historical
+        else PLAN_NOTICE
+        if plan
+        else SNAPSHOT_NOTICE
+        if snapshot
+        else ""
+    )
     for heading, body in split_sections(text):
         title = heading or source
         anchor = slug(title.split("›")[-1].strip()) if heading else ""
+        if historical:
+            title = f"[ИСТОРИЧЕСКИЙ / HISTORICAL] {title}"
+        elif plan:
+            title = f"[ПЛАН / PLAN] {title}"
+        elif snapshot:
+            title = f"[СНИМОК / SNAPSHOT] {title}"
         for piece in cut_into_pieces(body):
             collected.append(
                 Chunk(
                     source=source,
                     heading=title,
                     anchor=anchor,
-                    text=piece,
+                    text=f"{temporal_notice}\n\n{piece}" if temporal_notice else piece,
                     numbers=tuple(numbers_in(piece)),
                     scope=scope,
                 )
@@ -35,12 +125,32 @@ def chunks_of_markdown(source: str, text: str, scope: str) -> list[Chunk]:
 
 
 def chunks_of_plain(source: str, text: str, scope: str) -> list[Chunk]:
+    historical = is_historical_source(source)
+    plan = not historical and is_plan_source(source)
+    snapshot = not historical and not plan and is_snapshot_source(source)
+    temporal_notice = (
+        HISTORICAL_NOTICE
+        if historical
+        else PLAN_NOTICE
+        if plan
+        else SNAPSHOT_NOTICE
+        if snapshot
+        else ""
+    )
     return [
         Chunk(
             source=source,
-            heading=source,
+            heading=(
+                f"[ИСТОРИЧЕСКИЙ / HISTORICAL] {source}"
+                if historical
+                else f"[ПЛАН / PLAN] {source}"
+                if plan
+                else f"[СНИМОК / SNAPSHOT] {source}"
+                if snapshot
+                else source
+            ),
             anchor="",
-            text=piece,
+            text=f"{temporal_notice}\n\n{piece}" if temporal_notice else piece,
             numbers=tuple(numbers_in(piece)),
             scope=scope,
         )

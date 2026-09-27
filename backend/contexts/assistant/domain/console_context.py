@@ -12,6 +12,8 @@ class ConsoleContext:
     step: int | None = None
     date: str | None = None
     selected_well: str | None = None
+    run_id: str | None = None
+    context_version: str | None = None
     workspace: str | None = None
     view: str | None = None
     lang: str = DEFAULT_LANG
@@ -22,6 +24,8 @@ class ConsoleContext:
             "step": self.step,
             "date": self.date,
             "selected_well": self.selected_well,
+            "run_id": self.run_id,
+            "context_version": self.context_version,
             "workspace": self.workspace,
             "view": self.view,
         }

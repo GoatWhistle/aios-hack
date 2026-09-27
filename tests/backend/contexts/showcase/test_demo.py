@@ -34,6 +34,8 @@ from backend.contexts.showcase.application.build_showcase import (
     demo_meta,
     export_demo_script_json,
     field_events,
+    _oil_densities,
+    _remove_recomputed_hierarchies,
 )
 from backend.contexts.showcase.infrastructure.synthetic_artifact import (
     DEMO_PROVENANCE,
@@ -46,6 +48,7 @@ from backend.contexts.showcase.application.exporters.npv_view import build_npv_b
 from backend.contexts.showcase.application.scenarios import build_scenario_index
 from backend.contexts.showcase.application.exporters.timeline import build_timeline, build_trace
 from backend.contexts.reservoir.application.well_geometry import DEFAULT_DECK_PATH
+from backend.contexts.showcase.application.showcase_meta import hierarchy_meta
 
 from tests.support.backend.environment import missing_reason
 
@@ -56,7 +59,7 @@ VIEW_FILES = (
     "graph.json",
     "npv.json",
     "trace.json",
-    "hierarchy.json",
+    "hierarchy-index.json",
     "ablation.json",
 )
 REAL_VIEW_FILES = ("timeline.json", "graph.json", "npv.json", "trace.json")
@@ -166,7 +169,7 @@ def test_bundles_validate_against_the_artifact_loader(demo_dir: Path) -> None:
 
 def test_view_files_match_their_builders(demo_dir: Path) -> None:
     artifact = load_bundle(demo_dir / "bundles" / f"{BASE_ID}.json")
-    densities = {well: _DEFAULT_DENSITY for well in artifact.schedule.meta.wells}
+    densities = _oil_densities(artifact.schedule.meta.wells)
     exported = _read(demo_dir / "timeline.json")
     assert exported["steps"] == build_timeline(artifact, densities)["steps"]
     assert _read(demo_dir / "graph.json")["nodes"] == build_lambda_graph(artifact)["nodes"]
@@ -348,12 +351,52 @@ def test_export_demo_script_writes_compact_json(tmp_path: Path) -> None:
 def test_new_view_files_are_written_for_every_scenario(demo_dir: Path) -> None:
     for scenario in ("", BASE_ID, WHATIF_ID):
         root = demo_dir / scenario if scenario else demo_dir
-        for name in ("hierarchy.json", "ablation.json"):
-            data = _read(root / name)
-            assert data["meta"]["kind"] in ("hierarchy", "ablation")
-            synthetic = data["meta"]["synthetic"]
-            assert isinstance(synthetic, bool)
-            assert (data["meta"]["provenance"] == "synthetic-demo") is synthetic
+        data = _read(root / "ablation.json")
+        assert data["meta"]["kind"] == "ablation"
+        if scenario == WHATIF_ID:
+            hierarchy = _read(root / "hierarchy-index.json")
+            assert hierarchy["meta"]["provenance"] == "synthetic-demo"
+            assert hierarchy["meta"]["synthetic"] is True
+            assert (root / "hierarchy" / "0.json").is_file()
+        else:
+            assert not (root / "hierarchy-index.json").exists()
+            assert not (root / "hierarchy").exists()
+
+
+def test_cleanup_removes_replayed_hierarchy_but_preserves_recorded_journal(
+    tmp_path: Path,
+) -> None:
+    replay = tmp_path / "base"
+    replay_steps = replay / "hierarchy"
+    replay_steps.mkdir(parents=True)
+    replay_index = {
+        "meta": {"provenance": "policy-hierarchy-trace", "synthetic": False},
+        "step_count": 2,
+        "step_path": "hierarchy/{step}.json",
+    }
+    (replay / "hierarchy-index.json").write_text(json.dumps(replay_index))
+    for step in range(2):
+        (replay_steps / f"{step}.json").write_text("{}")
+
+    recorded = tmp_path / "recorded"
+    recorded.mkdir()
+    (recorded / "hierarchy-index.json").write_text(
+        json.dumps({"meta": {"provenance": "recorded-generation-journal"}})
+    )
+
+    _remove_recomputed_hierarchies(tmp_path)
+
+    assert not (replay / "hierarchy-index.json").exists()
+    assert not replay_steps.exists()
+    assert (recorded / "hierarchy-index.json").is_file()
+
+
+def test_replayed_hierarchy_metadata_never_claims_recorded_decision() -> None:
+    meta = hierarchy_meta(make_synthetic_artifact())
+    assert meta["provenance"] == "policy-hierarchy-replay"
+    assert meta["synthetic"] is False
+    assert meta["notice_key"] == "showcase.notice.hierarchy_replay"
+    assert "не записанная причина" in meta["notice"]
 
 
 @needs_base_run

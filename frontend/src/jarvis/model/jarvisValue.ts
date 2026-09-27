@@ -8,6 +8,7 @@ import type { TransitionPhase, TransitionState } from '@/jarvis/model/transition
 import type { JarvisSession } from '@/jarvis/provider/useJarvisSession';
 
 export interface JarvisSessionValue extends JarvisSession {
+  briefingLoading: boolean;
   transition: TransitionState;
   visible: boolean;
   moving: boolean;
@@ -17,10 +18,15 @@ export interface JarvisSessionValue extends JarvisSession {
   crossfade: boolean;
   requestCrossfade: () => void;
   askContext: JarvisAskContext;
+  selectRun: (runId: string | null) => void;
+  companionVisible: boolean;
+  showCompanion: () => void;
+  hideCompanion: () => void;
   transportMode: TransportMode;
   capabilities: JarvisCapabilities;
   retry: () => void;
   applyAction: (action: ConsoleAction) => void;
+  canRestorePrevious: boolean;
 }
 
 export interface JarvisVoiceValue {

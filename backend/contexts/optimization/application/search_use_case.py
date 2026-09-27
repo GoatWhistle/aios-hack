@@ -5,6 +5,7 @@ import logging
 import math
 import sys
 import time
+from collections.abc import Callable
 
 from backend.contexts.constraints.application.cases import load_case
 from backend.contexts.economics.application.base_case import load_response_artifact
@@ -108,6 +109,7 @@ def run_search(
     search_cap: int = SEARCH_CAP,
     final_cap: int = FINAL_CAP,
     seed: int = SEED,
+    progress_callback: Callable[[str, int, int], None] | None = None,
 ) -> SearchOutcome:
     if search_cap <= 0 or final_cap <= 0:
         raise SearchRunError(
@@ -178,6 +180,8 @@ def run_search(
             result = resolve(make_policy(env, theta, {}), evaluator, initial, search_cap)
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             calls["n"] += 1
+            if progress_callback is not None:
+                progress_callback("search", calls["n"], budget)
             rejection = {
                 "scenario_id": "surrogate-rejected",
                 "regret": 1.0,
@@ -239,6 +243,8 @@ def run_search(
                 )
             )
         calls["n"] += 1
+        if progress_callback is not None:
+            progress_callback("search", calls["n"], budget)
         cards.append(
             candidate_card(
                 schedule_hash=result.schedule_hash,
@@ -312,8 +318,15 @@ def run_search(
         reverse=True,
     )
     if not ranked:
+        if progress_callback is not None:
+            progress_callback("fallback", 0, budget)
+            return _search_near_baseline(
+                env, evaluator, budget, provenance, registry, progress_callback
+            )
         return _search_near_baseline(env, evaluator, budget, provenance, registry)
 
+    if progress_callback is not None:
+        progress_callback("finalize", 0, 1)
     finalists, finalist_cards = evaluate_finalists(
         ranked,
         env=env,
@@ -326,8 +339,15 @@ def run_search(
         scenario_ood_threshold=scenario_ood_threshold,
         registry=registry,
     )
+    if progress_callback is not None:
+        progress_callback("finalize", 1, 1)
     _write_diagnostics_tail(finalist_cards, registry, SEARCH_DIAGNOSTICS)
     if not finalists:
+        if progress_callback is not None:
+            progress_callback("fallback", 0, budget)
+            return _search_near_baseline(
+                env, evaluator, budget, provenance, registry, progress_callback
+            )
         return _search_near_baseline(env, evaluator, budget, provenance, registry)
 
     (

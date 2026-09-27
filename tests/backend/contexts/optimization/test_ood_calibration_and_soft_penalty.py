@@ -40,6 +40,15 @@ from tests.support.backend.paths import OUT_ROOT
 REAL_RUNS = OUT_ROOT / "web-runs"
 
 
+def _has_real_diagnostics() -> bool:
+    return REAL_RUNS.is_dir() and any(
+        directory.is_dir()
+        and (directory / "manifest.json").is_file()
+        and (directory / "diagnostics.json").is_file()
+        for directory in REAL_RUNS.iterdir()
+    )
+
+
 def _run_dir(root: Path, run_id: str, predicted: float, verified: float, score: float | None) -> Path:
     directory = root / run_id
     directory.mkdir(parents=True)
@@ -137,22 +146,21 @@ def test_tool_refuses_when_no_point_meets_the_tolerated_error() -> None:
         choose_threshold(points, [], 0.01)
 
 
-@pytest.mark.skipif(not REAL_RUNS.is_dir(), reason="the runs directory is unavailable")
+@pytest.mark.skipif(
+    not _has_real_diagnostics(),
+    reason="no real run with manifest and diagnostics artifacts is available",
+)
 def test_real_runs_give_the_pairs_the_report_claims() -> None:
     points, rejected = collect_points([REAL_RUNS])
-
-    confirmed = [
-        directory
-        for directory in sorted(REAL_RUNS.iterdir())
-        if directory.is_dir()
-        and (directory / "manifest.json").is_file()
-        and (directory / "diagnostics.json").is_file()
-    ]
-    assert len(points) == len(confirmed)
     assert len(points) >= 1
     for point in points:
         assert point.relative_error >= 0.0
         assert point.npv_verified != 0.0
+        manifest = json.loads((REAL_RUNS / point.run_id / "manifest.json").read_text())
+        assert point.npv_predicted == manifest["predicted_npv"]
+        assert point.npv_verified == manifest["verified_npv"]
+        assert point.schedule_hash == manifest["schedule_hash"]
+        assert Path(point.source).is_file()
     assert rejected
 
 

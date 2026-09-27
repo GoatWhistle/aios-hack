@@ -26,6 +26,11 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
   } = useJarvisVoice();
   const { setAudioLevel } = useJarvisSphere();
 
+  const recorderFailure = useCallback((code: string) => {
+    setSttError(code);
+    setMicOpen(false);
+  }, [setSttError, setMicOpen]);
+
   const deliver = useCallback(
     (text: string) => {
       setTranscript({ text, final: true });
@@ -42,7 +47,7 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
     [confirmVoice, onTranscript, onCommit, setMicOpen, setTranscript, noteVoiceAsked]
   );
 
-  const recorder = useRecorder({ lang, onText: deliver });
+  const recorder = useRecorder({ lang, onText: deliver, onFailure: recorderFailure });
 
   const speech = useSpeechInput({
     onInterim: (text) => setTranscript({ text, final: false }),

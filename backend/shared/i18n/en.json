@@ -17,6 +17,8 @@
   "runs.request.unknown_mode": "Unknown run kind.",
   "runs.request.unsupported_parameter": "The conditions contain an unsupported infrastructure parameter.",
   "runs.status.busy": "A run is already in progress. Wait for it to finish.",
+  "runs.status.cancel_requested": "Cancellation requested…",
+  "runs.status.cancelled": "The run was cancelled.",
   "runs.status.completed_search": "Forecast is ready. Run OPM to confirm it.",
   "runs.status.completed_verify": "The OPM run is complete.",
   "runs.status.completed_verify_sound": "OPM finished. All checks passed.",
@@ -33,6 +35,7 @@
   "showcase.notice.graph_lambda_absent": "OPM baseline run, but connectivity λ is not measured: the perturbation series was never run, no edges",
   "showcase.notice.graph_lambda_measured": "Real result: OPM baseline run, connectivity λ measured by a design-of-experiments series of perturbed runs",
   "showcase.notice.hierarchy": "Real decision log: field, group and well levels come from a policy run (policy/hierarchy.run_step) over the scenario response",
+  "showcase.notice.hierarchy_replay": "Recomputed policy replay: this is not the recorded cause of the saved schedule",
   "showcase.notice.plan": "Our plan: θ* found by CMA-ES; response predicted by a three-member surrogate ensemble and NPV by a separate economic head. Not OPM-confirmed",
   "showcase.notice.plan_unstable": "Our plan: θ* found by CMA-ES; response predicted by a three-member surrogate ensemble and NPV by a separate economic head. Not OPM-confirmed; policy fixed point is unstable",
   "showcase.notice.real": "Real result: OPM baseline run with zero retiming, reference NPV methodology"

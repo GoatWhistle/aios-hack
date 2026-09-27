@@ -1,0 +1,9 @@
+{
+  "run_id": "web-20260927-223804-b99c6fee",
+  "created_at": "2026-09-27T22:38:04.530400+00:00",
+  "budget": 10,
+  "status": "failed",
+  "mode": "search",
+  "message": "Допустимый план не найден или расчёт завершился ошибкой. См. причины отклонения ниже.",
+  "message_key": "runs.status.failed_infeasible"
+}

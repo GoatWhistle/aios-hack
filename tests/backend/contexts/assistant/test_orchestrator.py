@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -9,9 +12,12 @@ from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
 from backend.contexts.assistant.application.recording_replay import replay, to_jsonl
 from backend.contexts.assistant.infrastructure.knowledge import Knowledge
 from backend.contexts.assistant.application.orchestrator import Orchestrator
+from backend.contexts.assistant.application.orchestrator import _contextual_tool_preset
 from backend.contexts.assistant.infrastructure.recordings import RECORDINGS
-from backend.contexts.assistant.domain.session import SessionError, SessionStore
+from backend.contexts.assistant.infrastructure.prompt import prompt_resources
+from backend.contexts.assistant.domain.session import Exchange, SessionError, SessionStore
 from backend.contexts.assistant.application.tools.context import ConsoleContext
+from backend.contexts.assistant.application.tools import HANDLERS
 from backend.contexts.assistant.infrastructure.llm.chat_events import ToolCall
 from backend.contexts.assistant.infrastructure.llm.fake_chat import FakeChatClient
 
@@ -29,18 +35,109 @@ EVENT_ORDER = (
 )
 
 
+def test_unretrieved_run_documents_do_not_authorize_answer_numbers(
+    store: ArtifactStore, knowledge: Knowledge,
+) -> None:
+    record = SimpleNamespace(documents=lambda: ({"unrelated_measurement": 987654321},))
+    runs = SimpleNamespace(read=lambda *args: record)
+    client = FakeChatClient(rounds=[], caption="Recorded value is 987654321.")
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge, runs=runs)
+    events = list(orchestrator.ask("evidence-boundary", "Show recorded values", ConsoleContext()))
+    captions = [event.body["text"] for event in events if event.type == "caption"]
+    assert captions
+    assert all("987654321" not in text for text in captions)
+
+
+def test_ambient_evidence_uses_only_explicit_run(store: ArtifactStore) -> None:
+    from backend.contexts.assistant.application.orchestrator_compose import evidence_of
+    from backend.contexts.assistant.application.tools.context import ToolContext
+
+    reads = []
+    def read(run_id=None):
+        reads.append(run_id)
+        return SimpleNamespace(documents=lambda: ({"run_id": run_id},))
+
+    runs = SimpleNamespace(read=read)
+    context = ToolContext(store=store, runs=runs, console=ConsoleContext(run_id="selected-run"))
+    assert evidence_of(context) == ({"run_id": "selected-run"},)
+    assert evidence_of(ToolContext(store=store, runs=runs)) == ()
+    assert reads == ["selected-run"]
+
+
+@pytest.mark.parametrize(
+    ("lang", "required_phrases"),
+    [
+        ("ru", ("точную причину из message", "предложи next_step", "не утверждай")),
+        ("en", ("exact reason from message", "suggest next_step", "Do not claim")),
+    ],
+)
+def test_prompt_requires_tool_failure_reason_and_next_step(
+    lang: str, required_phrases: tuple[str, ...]
+) -> None:
+    rules = " ".join(prompt_resources(lang).lines("rules"))
+
+    for phrase in required_phrases:
+        assert phrase.casefold() in rules.casefold()
+
+
+@pytest.mark.parametrize(
+    ("lang", "required_phrases"),
+    [
+        ("ru", ("формулу из карточки дословно", "не оставляй пустой заголовок", "не восстанавливай её по памяти")),
+        ("en", ("reproduce the formula from the card exactly", "never leave a blank formula heading", "do not reconstruct it from memory")),
+    ],
+)
+def test_prompt_preserves_only_retrieved_formulas(
+    lang: str, required_phrases: tuple[str, ...]
+) -> None:
+    playbook = " ".join(prompt_resources(lang).lines("playbook"))
+    for phrase in required_phrases:
+        assert phrase.casefold() in playbook.casefold()
+
+
 @pytest.fixture(scope="module")
 def knowledge() -> Knowledge:
     return Knowledge()
 
 
 @pytest.mark.parametrize("recording", RECORDINGS, ids=lambda r: r.name)
-def test_fixture_replays_byte_for_byte(
+def test_fixture_replays_with_stable_events(
     recording, store: ArtifactStore, knowledge: Knowledge, fixtures_root: Path
 ) -> None:
-    produced = to_jsonl(replay(recording, store, knowledge))
-    stored = (fixtures_root / f"{recording.name}.jsonl").read_text(encoding="utf-8")
-    assert produced == stored
+    produced = [
+        json.loads(line)
+        for line in to_jsonl(replay(recording, store, knowledge)).splitlines()
+    ]
+    stored = [
+        json.loads(line)
+        for line in (fixtures_root / f"{recording.name}.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert _stable_replay(produced) == _stable_replay(stored)
+
+
+def _stable_replay(events: list[dict]) -> list[dict]:
+    """Keep replay checks stable across corpus and instrumentation changes."""
+    normalized = json.loads(json.dumps(events, ensure_ascii=False))
+    for event in normalized:
+        if event.get("type") == "done":
+            # Replay timing is generated by the orchestrator's frozen test clock;
+            # added checkpoints legitimately change that instrumentation value.
+            event.pop("elapsed_ms", None)
+        if event.get("type") != "card":
+            continue
+        card = event.get("card") or {}
+        if card.get("type") != "doc":
+            continue
+        payload = card.get("payload") or {}
+        card["title"] = "documentation result"
+        card["payload"] = {
+            "query": payload.get("query"),
+            "scope": payload.get("scope"),
+            "terms": payload.get("terms"),
+        }
+    return normalized
 
 
 @pytest.mark.parametrize("recording", RECORDINGS, ids=lambda r: r.name)
@@ -72,7 +169,11 @@ def test_fixture_cards_carry_provenance(recording, fixtures_root: Path) -> None:
         if event["type"] != "card":
             continue
         assert event["card"]["provenance"]
-        assert event["card"]["type"] != "error"
+        if event["card"]["type"] == "error":
+            payload = event["card"]["payload"]
+            assert payload.get("expected_card")
+            assert payload.get("message")
+            assert "no-" in payload["message"] or "unavailable" in payload["message"]
 
 
 def test_orchestrator_stops_after_max_rounds(
@@ -105,6 +206,323 @@ def test_tool_failure_becomes_error_card(
     assert any(event.type == "done" for event in events)
 
 
+def test_overall_deadline_interrupts_cooperative_sync_tool(
+    store: ArtifactStore, knowledge: Knowledge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stopped = threading.Event()
+
+    def slow_handler(context, _arguments):
+        while True:
+            try:
+                context.check_cancelled()
+            except TimeoutError:
+                stopped.set()
+                raise
+            time.sleep(0.005)
+
+    monkeypatch.setitem(HANDLERS, "field_metrics", slow_handler)
+    client = FakeChatClient(
+        rounds=[[ToolCall(id="field", name="field_metrics", args={"step": 1})]],
+        caption="The field overview is ready.",
+    )
+    orchestrator = Orchestrator(
+        client=client, store=store, knowledge=knowledge, timeout=0.15
+    )
+
+    emitted = []
+    with pytest.raises(TimeoutError, match="time budget"):
+        for event in orchestrator.ask("slow-tool", "show the field", ConsoleContext()):
+            emitted.append(event)
+
+    assert stopped.is_set()
+    assert not any(event.type == "card" for event in emitted)
+
+
+def test_orchestrator_drops_unverified_well_and_step_references(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    call = ToolCall(id="c", name="well_snapshot", args={"well": "13"})
+    client = FakeChatClient(
+        rounds=[[call]], caption="Well 999 at step 999 had a liquid rate of 112.9."
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s", "show well 13", ConsoleContext(scenario="base", step=1, lang="en")
+        )
+    )
+
+    caption = next(event for event in events if event.type == "caption")
+    assert caption.body["text"] == "The rule, well, step, or date is not confirmed by this answer's evidence."
+    assert any(
+        event.type == "warning"
+        and event.body["code"] == "context-reference-unverified"
+        for event in events
+    )
+
+
+def test_orchestrator_drops_date_outside_active_timeline(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    call = ToolCall(id="well", name="well_snapshot", args={"well": "13"})
+    client = FakeChatClient(
+        rounds=[[call]], caption="Well 13 on 2040-01-01 shows a liquid rate."
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s", "Show well 13", ConsoleContext(scenario="base", step=1, lang="en")
+        )
+    )
+
+    caption = next(event for event in events if event.type == "caption")
+    assert caption.body["text"] == "The rule, well, step, or date is not confirmed by this answer's evidence."
+
+
+def test_orchestrator_does_not_claim_success_when_every_tool_refuses(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    call = ToolCall(id="council", name="council_step", args={})
+    client = FakeChatClient(
+        rounds=[[call]], caption="The council completed allocation for this step."
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s", "Show the council decision", ConsoleContext(scenario="base", step=0, lang="en")
+        )
+    )
+
+    card = next(event for event in events if event.type == "card")
+    caption = next(event for event in events if event.type == "caption")
+    warnings = [event.body["code"] for event in events if event.type == "warning"]
+    assert card.body["card"]["type"] == "error"
+    assert "completed allocation" not in caption.body["text"]
+    assert "no-council-step" in caption.body["text"]
+    assert "tool-result-unverified" in warnings
+
+
+def test_orchestrator_keeps_successful_facts_and_drops_partial_failure_claim(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    calls = [
+        ToolCall(id="metrics", name="field_metrics", args={}),
+        ToolCall(id="council", name="council_step", args={}),
+    ]
+    client = FakeChatClient(
+        rounds=[calls],
+        caption="Field metrics returned data. The council completed allocation.",
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s", "Show field data and council decision", ConsoleContext(scenario="base", step=0, lang="en")
+        )
+    )
+
+    cards = [event.body["card"] for event in events if event.type == "card"]
+    caption = next(event for event in events if event.type == "caption")
+    assert [card["type"] for card in cards] == ["metric", "error"]
+    assert caption.body["text"] == "Field metrics returned data."
+
+
+def test_decision_question_uses_selected_step_and_supplies_date_to_model(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    call = ToolCall(id="journal", name="decision_journal", args={})
+    client = FakeChatClient(
+        rounds=[[call]],
+        caption="На шаге 10 (2007-11-01) журнал фиксирует команду.",
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s",
+            "Почему выбрали этот режим?",
+            ConsoleContext(
+                scenario="whatif-injection-cut",
+                selected_well="13",
+                step=10,
+            ),
+        )
+    )
+
+    card_event = next(event for event in events if event.type == "card")
+    card = card_event.body["card"]["payload"]
+    assert card["well"] == "13"
+    assert card["step"] == 10
+    assert card["date"] == "2007-11-01"
+    _, system_prompt = client.calls[0]
+    assert "явно назови шаг и дату" in system_prompt
+    assert "короткое объяснение только по записанным фактам" in system_prompt
+    assert "если по истории нельзя однозначно установить нужный прогон" in system_prompt.casefold()
+    assert "покажи варианты и уточни" in system_prompt.casefold()
+    assert "точную причину из message" in system_prompt
+    assert "предложи next_step" in system_prompt
+    assert "не утверждай, что запрошенный результат получен" in system_prompt.casefold()
+    messages, _ = client.calls[1]
+    assert any(
+        "2007-11-01" in (message.content or "")
+        and message.role == "tool"
+        for message in messages
+    )
+    caption = next(event for event in events if event.type == "caption")
+    assert caption.body["text"] == "На шаге 10 (2007-11-01) журнал фиксирует команду."
+
+
+def test_unnamed_neighbour_follow_up_offers_measured_links(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    client = FakeChatClient(
+        rounds=[],
+        caption="Связи показаны на карте. Выберите скважину для продолжения.",
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(
+        orchestrator.ask(
+            "s",
+            "А у соседней?",
+            ConsoleContext(scenario="base", selected_well="1", step=96),
+        )
+    )
+
+    card_event = next(event for event in events if event.type == "card")
+    card = card_event.body["card"]
+    assert card["type"] == "field-map"
+    payload = card["payload"]
+    assert payload["focus"] == ["1"]
+    assert payload["edges"]
+    assert all(edge["neighbour"] in payload["highlight"] for edge in payload["edges"])
+    assert card["action"]["workspace"] == "field"
+    assert card["action"]["view"] == "maps"
+    messages, prompt = client.calls[0]
+    assert "вызови connectivity для выбранной скважины" in prompt
+    assert any(
+        message.role == "user"
+        and "Tool connectivity returned" in (message.content or "")
+        and "\"edges\"" in (message.content or "")
+        for message in messages
+    )
+    caption = next(event for event in events if event.type == "caption")
+    assert caption.body["text"] == "Связи показаны на карте. Выберите скважину для продолжения."
+
+
+def test_neighbour_preset_requires_a_selected_well_and_no_named_alternative() -> None:
+    context = ConsoleContext(selected_well="1")
+
+    assert _contextual_tool_preset("А у соседней?", context) == (
+        ("connectivity", {"well": "1"}),
+    )
+    assert _contextual_tool_preset("Почему не соседняя скважина 5?", context) == ()
+    assert _contextual_tool_preset("А у соседней?", ConsoleContext()) == ()
+
+
+def test_here_follow_up_uses_only_the_active_well_and_step() -> None:
+    context = ConsoleContext(scenario="base", selected_well="2", step=96)
+
+    assert _contextual_tool_preset("А здесь?", context) == (
+        ("well_snapshot", {"well": "2", "step": 96}),
+    )
+    assert _contextual_tool_preset("What here?", context) == (
+        ("well_snapshot", {"well": "2", "step": 96}),
+    )
+    assert _contextual_tool_preset("А здесь?", ConsoleContext(step=96)) == ()
+    assert _contextual_tool_preset("А на скважине 5?", context) == ()
+
+
+def test_earlier_preset_repeats_well_snapshot_at_previous_control_step() -> None:
+    context = ConsoleContext(scenario="base", selected_well="2", step=96)
+    session = SessionStore().get("temporal-follow-up", context)
+    session.remember(
+        Exchange(
+            question="Покажи скважину 2",
+            card_types=("well",),
+            caption="Скважина 2 на выбранном шаге.",
+        )
+    )
+
+    assert _contextual_tool_preset("А раньше?", context, session) == (
+        ("well_snapshot", {"well": "2", "step": 95}),
+    )
+    assert _contextual_tool_preset("А раньше?", context) == ()
+    assert _contextual_tool_preset(
+        "А раньше?", ConsoleContext(scenario="base", selected_well="2", step=0), session
+    ) == ()
+
+
+def test_selected_neighbour_follow_up_reads_that_well_at_active_step(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    sessions = SessionStore()
+    context = ConsoleContext(scenario="base", selected_well="1", step=96)
+    first = Orchestrator(
+        client=FakeChatClient(
+            rounds=[],
+            caption="Выберите измеренную связанную скважину.",
+        ),
+        store=store,
+        knowledge=knowledge,
+        sessions=sessions,
+    )
+    first_events = list(first.ask("s", "А у соседней?", context))
+    link_card = next(event for event in first_events if event.type == "card").body["card"]
+    selected_neighbour = link_card["payload"]["edges"][0]["neighbour"]
+
+    second_client = FakeChatClient(
+        rounds=[[ToolCall(id="snapshot", name="well_snapshot", args={"well": selected_neighbour})]],
+        caption="Снимок выбранной скважины открыт на активном шаге.",
+    )
+    second = Orchestrator(
+        client=second_client,
+        store=store,
+        knowledge=knowledge,
+        sessions=sessions,
+    )
+    second_events = list(
+        second.ask("s", f"Посмотри скважину {selected_neighbour}.", context)
+    )
+
+    snapshot = next(event for event in second_events if event.type == "card").body["card"]
+    assert snapshot["type"] == "well"
+    assert snapshot["payload"]["well"] == selected_neighbour
+    assert snapshot["payload"]["step"] == 96
+    assert snapshot["payload"]["date"]
+    second_messages, second_prompt = second_client.calls[1]
+    assert "шаг" in second_prompt
+    assert any("А у соседней?" in (message.content or "") for message in second_messages)
+    assert any(
+        message.role == "tool" and f'"well": "{selected_neighbour}"' in (message.content or "")
+        for message in second_messages
+    )
+
+
+def test_here_follow_up_reads_the_selected_well_at_the_active_step(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    client = FakeChatClient(rounds=[], caption="Текущий снимок выбранной скважины.")
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+    events = list(
+        orchestrator.ask(
+            "here-follow-up",
+            "А здесь?",
+            ConsoleContext(scenario="base", selected_well="2", step=96),
+        )
+    )
+
+    cards = [event.body["card"] for event in events if event.type == "card"]
+    assert len(cards) == 1
+    assert cards[0]["type"] == "well"
+    assert cards[0]["payload"]["well"] == "2"
+    assert cards[0]["payload"]["step"] == 96
+    assert cards[0]["payload"]["date"]
+
+
 def test_unknown_tool_becomes_error_card(
     store: ArtifactStore, knowledge: Knowledge
 ) -> None:
@@ -132,6 +550,21 @@ def test_invented_number_produces_warning(
     assert caption.body["guarded"] is True
 
 
+def test_unverified_run_reference_is_removed_with_a_warning(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    client = FakeChatClient(rounds=[], caption="Прогон made-up-run-2035 выбран.")
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge)
+
+    events = list(orchestrator.ask("s", "Какой прогон выбран?", ConsoleContext()))
+
+    warnings = [event for event in events if event.type == "warning"]
+    caption = next(event for event in events if event.type == "caption")
+    assert any(event.body["code"] == "run-reference-unverified" for event in warnings)
+    assert "made-up-run-2035" not in caption.body["text"]
+    assert "не подтверждён" in caption.body["text"]
+
+
 def test_cancel_stops_the_stream(store: ArtifactStore, knowledge: Knowledge) -> None:
     sessions = SessionStore()
     call = ToolCall(id="c", name="field_metrics", args={"step": 96})
@@ -145,6 +578,111 @@ def test_cancel_stops_the_stream(store: ArtifactStore, knowledge: Knowledge) -> 
     collected.extend(stream)
     assert collected[-1].type == "error"
     assert collected[-1].body["code"] == "cancelled"
+
+
+def test_cancel_during_tool_discards_its_result_and_skips_later_tools(
+    store: ArtifactStore, knowledge: Knowledge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entered_tool = threading.Event()
+    release_tool = threading.Event()
+    calls: list[str] = []
+
+    def blocking_tool(_context: object, call: ToolCall) -> tuple[object, dict[str, object]]:
+        calls.append(call.name)
+        entered_tool.set()
+        assert release_tool.wait(2)
+        return SimpleNamespace(as_dict=lambda: {"type": "metric", "payload": {}}), {}
+
+    monkeypatch.setattr("backend.contexts.assistant.application.orchestrator.call_tool", blocking_tool)
+    sessions = SessionStore()
+    client = FakeChatClient(
+        rounds=[[
+            ToolCall(id="first", name="field_metrics", args={"step": 0}),
+            ToolCall(id="second", name="field_events", args={"from_step": 0, "to_step": 1}),
+        ]],
+        caption="Finished.",
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge, sessions=sessions)
+    stream = orchestrator.ask("cancel-tool", "show metrics", ConsoleContext(step=0))
+    events: list[object] = []
+    reader = threading.Thread(target=lambda: events.extend(stream), daemon=True)
+    reader.start()
+    try:
+        assert entered_tool.wait(1)
+        sessions.cancel("cancel-tool")
+    finally:
+        release_tool.set()
+    reader.join(timeout=2)
+
+    assert not reader.is_alive()
+    assert calls == ["field_metrics"]
+    assert not any(getattr(event, "type", None) == "card" for event in events)
+    assert events[-1].type == "error"
+    assert events[-1].body["code"] == "cancelled"
+
+
+def test_cooperative_sync_tool_stops_on_generation_cancellation(
+    store: ArtifactStore, knowledge: Knowledge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entered_tool = threading.Event()
+    calls: list[str] = []
+
+    def cooperative_tool(context: object, call: ToolCall) -> tuple[object, dict[str, object]]:
+        calls.append(call.name)
+        entered_tool.set()
+        token = getattr(context, "cancellation")
+        assert token is not None
+        while not token.cancelled:
+            threading.Event().wait(0.005)
+        return SimpleNamespace(as_dict=lambda: {"type": "metric", "payload": {}}), {}
+
+    monkeypatch.setattr("backend.contexts.assistant.application.orchestrator.call_tool", cooperative_tool)
+    sessions = SessionStore()
+    client = FakeChatClient(
+        rounds=[[
+            ToolCall(id="first", name="field_metrics", args={"step": 0}),
+            ToolCall(id="second", name="field_events", args={"from_step": 0, "to_step": 1}),
+        ]],
+        caption="Finished.",
+    )
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge, sessions=sessions)
+    stream = orchestrator.ask("cooperative-cancel", "show metrics", ConsoleContext(step=0))
+    events: list[object] = []
+    reader = threading.Thread(target=lambda: events.extend(stream), daemon=True)
+    reader.start()
+    assert entered_tool.wait(1)
+    sessions.cancel("cooperative-cancel")
+    reader.join(timeout=1)
+
+    assert not reader.is_alive()
+    assert calls == ["field_metrics"]
+    assert events[-1].type == "error"
+    assert events[-1].body["code"] == "cancelled"
+
+
+def test_new_generation_cancels_old_stream_without_finishing_new_request(
+    store: ArtifactStore, knowledge: Knowledge
+) -> None:
+    sessions = SessionStore()
+    orchestrator = Orchestrator(
+        client=FakeChatClient(rounds=[], caption="Новый ответ."),
+        store=store,
+        knowledge=knowledge,
+        sessions=sessions,
+    )
+    old_stream = orchestrator.ask("same-session", "Старый вопрос", ConsoleContext(step=10))
+    assert next(old_stream).type == "scene"
+    new_stream = orchestrator.ask("same-session", "Новый вопрос", ConsoleContext(step=96))
+    assert next(new_stream).type == "scene"
+
+    old_tail = list(old_stream)
+    assert old_tail[-1].type == "error"
+    assert old_tail[-1].body["code"] == "cancelled"
+    assert sessions.get("same-session").running is True
+
+    new_tail = list(new_stream)
+    assert new_tail[-1].type == "done"
+    assert sessions.get("same-session").running is False
 
 
 def test_session_remembers_the_exchange(

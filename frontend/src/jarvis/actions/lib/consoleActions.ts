@@ -1,15 +1,16 @@
 import type { Workspace, WorkspaceView } from '@/shared/router/routes';
 import { isView, isWorkspace, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
-import { clamp } from '@/shared/lib/math/clamp';
 
 export interface ConsoleBridge {
   setRoute: (workspace: Workspace, view: WorkspaceView) => void;
   selectScenario: (id: string) => void;
+  selectRun?: (runId: string | null) => void;
   setStepIndex: (index: number) => void;
   selectWell: (well: string | null) => void;
   togglePlay: () => void;
   playing: boolean;
-  stepCount: number;
+  resolveStepIndex: (controlStep: number) => number | null;
+  isWellAvailable: (well: string) => boolean;
   currentScenario: string;
   defaultViewOf: (workspace: Workspace) => WorkspaceView;
   spotlight: (anchor: string) => void;
@@ -17,6 +18,7 @@ export interface ConsoleBridge {
 
 export const APPLY_ORDER = [
   'scenario',
+  'run',
   'route',
   'step',
   'well',
@@ -30,6 +32,9 @@ export const plannedSteps = (action: ConsoleAction): ApplyStep[] => {
   const steps: ApplyStep[] = [];
   if (action.scenario !== undefined) {
     steps.push('scenario');
+  }
+  if (action.run_id !== undefined) {
+    steps.push('run');
   }
   if (action.workspace !== undefined) {
     steps.push('route');
@@ -49,22 +54,24 @@ export const plannedSteps = (action: ConsoleAction): ApplyStep[] => {
   return steps;
 };
 
-export const clampStep = (step: number, stepCount: number): number | null => {
-  if (!Number.isFinite(step) || stepCount <= 0) {
-    return null;
-  }
-  return clamp(Math.trunc(step), 0, stepCount - 1);
-};
-
 export const applyConsoleAction = (
   action: ConsoleAction,
   bridge: ConsoleBridge
 ): ApplyStep[] => {
   const applied: ApplyStep[] = [];
+  const switchingScenario =
+    action.scenario !== undefined && action.scenario !== bridge.currentScenario;
 
-  if (action.scenario !== undefined && action.scenario !== bridge.currentScenario) {
+  if (switchingScenario && action.scenario !== undefined) {
     bridge.selectScenario(action.scenario);
     applied.push('scenario');
+  }
+
+  if (action.run_id !== undefined) {
+    if (bridge.selectRun !== undefined) {
+      bridge.selectRun(action.run_id);
+      applied.push('run');
+    }
   }
 
   if (action.workspace !== undefined && isWorkspace(action.workspace)) {
@@ -76,15 +83,19 @@ export const applyConsoleAction = (
     applied.push('route');
   }
 
-  if (action.step !== undefined) {
-    const step = clampStep(action.step, bridge.stepCount);
+  if (action.step !== undefined && !switchingScenario) {
+    const step = bridge.resolveStepIndex(action.step);
     if (step !== null) {
       bridge.setStepIndex(step);
       applied.push('step');
     }
   }
 
-  if (action.well !== undefined) {
+  if (
+    action.well !== undefined
+    && !switchingScenario
+    && (action.well === null || bridge.isWellAvailable(action.well))
+  ) {
     bridge.selectWell(action.well);
     applied.push('well');
   }

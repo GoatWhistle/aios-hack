@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { CONSOLE_OVERLAY_ID } from '@/shared/lib/overlay';
 import { useJarvisSessionContext } from '@/jarvis/provider/contexts';
 import { JarvisScreen } from '@/jarvis/screen/JarvisScreen/JarvisScreen';
+import { JarvisCompanion } from '@/jarvis/stage/JarvisCompanion/JarvisCompanion';
 import { SphereBurstLayer } from '@/jarvis/sphere/SphereBurstLayer/SphereBurstLayer';
 import {
   framesAreLagging,
@@ -107,6 +108,7 @@ export const JarvisStage = ({ children }: { children: ReactNode }) => {
         inert={transition.phase !== 'closed'}
       />
       <SphereBurstLayer />
+      {transition.phase === 'closed' ? <JarvisCompanion /> : null}
     </div>
   );
 };

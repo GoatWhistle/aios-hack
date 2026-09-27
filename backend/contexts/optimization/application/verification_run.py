@@ -31,7 +31,7 @@ from backend.contexts.optimization.application.comparison_document import (
     refuse_unequal_conditions,
 )
 from backend.contexts.optimization.application.observation_store import persist_observation
-from backend.contexts.optimization.application.search_use_case import CONSTRAINTS, SEED
+from backend.contexts.optimization.application.search_config import CONSTRAINTS, SEED
 from backend.contexts.optimization.application.verification_guard import (
     GuardCheck,
     GuardReport,

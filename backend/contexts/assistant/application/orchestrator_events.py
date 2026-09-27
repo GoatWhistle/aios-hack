@@ -47,6 +47,7 @@ def stamp() -> str:
 class Event:
     type: str
     body: dict[str, Any]
+    generation: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {"type": self.type, **self.body}

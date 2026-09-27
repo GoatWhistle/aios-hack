@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Iterator, Sequence
 
+from backend.contexts.assistant.domain.cancellation import CancellationToken
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
     ChatEvent,
     ChatMessage,
@@ -45,6 +46,7 @@ class FakeChatClient:
         messages: Sequence[ChatMessage],
         tools: Sequence[ToolSpec],
         system: str,
+        cancellation: CancellationToken | None = None,
     ) -> Iterator[ChatEvent]:
         turn = len(self.calls)
         self.calls.append((tuple(messages), system))

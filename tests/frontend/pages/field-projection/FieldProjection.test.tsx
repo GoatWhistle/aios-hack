@@ -9,7 +9,7 @@ import type { TimelineFile } from '@/entities/timeline/types';
 import type { WellsFile } from '@/entities/wells/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
-import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
+import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
 import { FieldProjection } from '@/pages/field-projection/ui/FieldProjection/FieldProjection';
 import { edgeRelation } from '@/pages/field-projection/ui/EdgeLayer/EdgeLayer';
@@ -89,7 +89,7 @@ const timelineFixture: TimelineFile = {
       role: index === 0 ? ('INJ' as const) : ('PROD' as const),
       operating_status: 'OPEN' as const,
       setpoint: 100,
-      liquid_rate: 40 + 10 * index,
+      liquid_rate: 40 + 10 * index + k * 100,
       injection_rate: 120,
       bhp: 90,
       watercut: 0.2 * index,
@@ -189,6 +189,16 @@ const renderReady = async () => {
     expect(view.container.querySelector('.field-projection-plot')).not.toBeNull()
   );
   return view;
+};
+
+const FocusSecondStepWell = () => {
+  const { setStepIndex, selectWell } = useTimeline();
+  return (
+    <button type="button" onClick={() => {
+      setStepIndex(1);
+      selectWell('W2');
+    }}>Focus W2 at second step</button>
+  );
 };
 
 const openSettings = () => {
@@ -745,6 +755,28 @@ describe('the selection reads at a glance without shouting', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('[data-relation="linked"]')).toHaveLength(2)
     );
+  });
+
+  it('shows the actual control step, date, rate unit, and measured edge for the focused well', async () => {
+    const { container } = render(withProviders(
+      <>
+        <FocusSecondStepWell />
+        <FieldProjection />
+      </>
+    ));
+    await screen.findByTestId('field-projection-plot');
+    fireEvent.click(screen.getByRole('button', { name: 'Focus W2 at second step' }));
+
+    const contextLine = await screen.findByTestId('field-projection-context');
+    expect(contextLine.textContent).toContain('Контрольный шаг 1 · 1 янв. 2008 г.');
+    expect(container.querySelectorAll('[data-relation="linked"]')).toHaveLength(1);
+    fireEvent.pointerEnter(container.querySelector('[data-well-id="W2"]') as SVGGElement, {
+      clientX: 20,
+      clientY: 20
+    });
+    const tooltip = await screen.findByTestId('projection-tooltip');
+    expect(tooltip.textContent).toContain('Контрольный шаг 1 · 1 янв. 2008 г.');
+    expect(tooltip.textContent).toContain('150 м³/сут');
   });
 
   it('marks an edge that touches neither end of the selection as muted', () => {

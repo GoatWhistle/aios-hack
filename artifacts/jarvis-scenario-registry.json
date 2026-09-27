@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-26",
+  "entries": [
+    {
+      "run_id": "candidate-018",
+      "role": "submitted-plan",
+      "label": "Final submitted candidate (candidate-018)",
+      "status": "verified",
+      "schedule_hash": "6e72c59b4fd802adbbf331eacc688b2310efb2277027b966a71aba6042963d0f",
+      "sound": true,
+      "opm_status": "OK",
+      "verified_npv_rub": 2763840887.814991,
+      "dynamic_violations": 554,
+      "blocking_dynamic_violations": 0,
+      "bundle": {
+        "path": "artifacts/surrogate-trajectory-ab-20260910/final-submission",
+        "schedule_file": "well_schedule.inc",
+        "claimed_file": "claimed_npv.json",
+        "history_file": "validation/history.inc",
+        "selfcheck": "passed",
+        "content_hash_submission": "53fec16128cb1a34eb6481db0f2435e86f67ce4a95a08e09342b78b8bd5f6207",
+        "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+        "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+        "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+        "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
+        "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+        "source_run_id": "20260909T224413-fe1f9f764bef",
+        "response_hash": "60bf6af4a6d506aeb0bfcd5db4ef1eee890acf20527d867a536629dde4a95dd8"
+      },
+      "cross_checks": {
+        "champion_id": "candidate-018",
+        "champion_schedule_hash_matches": true,
+        "champion_npv_matches": true,
+        "candidate_018_reference_parity": "matched"
+      },
+      "run_manifest": {
+        "available": false,
+        "reason": "The original run directory is not present in this checkout; champion and validation sidecars are available."
+      },
+      "generation_reasons": {
+        "available": false,
+        "reason": "No original decision journal or complete generation parameter bundle is present locally."
+      },
+      "response_artifact": {
+        "available": false,
+        "recorded_hash": "60bf6af4a6d506aeb0bfcd5db4ef1eee890acf20527d867a536629dde4a95dd8",
+        "source_run_id": "20260909T224413-fe1f9f764bef",
+        "reason": "The response file matching the recorded hash was not found in the local workspace."
+      }
+    },
+    {
+      "run_id": "jarvis-repeat-20260926",
+      "role": "historical-repeat",
+      "label": "Historical schedule OPM repeat",
+      "status": "verified",
+      "schedule_hash": "b534b867eb7c4f05d766b75bee6bb694c61ab1dc2b3eaaa271d9bddc35410c28",
+      "sound": true,
+      "opm_status": "OK",
+      "verified_npv_rub": 11871040205.818085,
+      "generation_reasons": {
+        "available": false,
+        "reason": "This fresh OPM repeat has results but no original generation journal."
+      },
+      "source": "out/jarvis-evidence-20260926/runs/jarvis-repeat-20260926/manifest.json"
+    },
+    {
+      "run_id": "jarvis-policy-20260926",
+      "role": "diagnostic-policy-run",
+      "label": "Recorded diagnostic policy pass",
+      "status": "rejected",
+      "schedule_hash": "b3b13947bd302803d3cbc641edf7ff0f2222606ebc7dd158cb762adf4ba9e719",
+      "sound": false,
+      "opm_status": "OK",
+      "verified_npv_rub": null,
+      "dynamic_violations": 785,
+      "blocking_dynamic_violations": 165,
+      "generation_reasons": {
+        "available": true,
+        "record_count": 21594,
+        "path": "out/jarvis-evidence-20260926/runs/jarvis-policy-20260926/decision-evidence.jsonl",
+        "indexed_by": ["run_id", "well", "step"]
+      },
+      "source": "out/jarvis-evidence-20260926/runs/jarvis-policy-20260926/manifest.json"
+    }
+  ],
+  "additional_candidate_bundles": [
+    {"path": "artifacts/surrogate-hybrid-ab-20260910/submission", "role": "candidate-experiment"},
+    {"path": "artifacts/surrogate-hybrid-feedback4-ab-20260910/submission", "role": "candidate-experiment"},
+    {"path": "artifacts/surrogate-trajectory-ab-20260910/submission", "role": "candidate-experiment"},
+    {"path": "artifacts/surrogate-transfer-ab-20260910/submission", "role": "candidate-experiment"},
+    {"path": "artifacts/surrogate-transfer-ab-v3-20260910/submission", "role": "candidate-experiment"}
+  ]
+}

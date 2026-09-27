@@ -23,8 +23,18 @@ def final_chunk() -> bytes:
     return b"0\r\n\r\n"
 
 
-def error_event(code: str, message: str) -> bytes:
-    return encode_event({"type": "error", "code": code, "message": message})
+def error_event(
+    code: str,
+    message: str,
+    request_id: str | None = None,
+    http_status: int | None = None,
+) -> bytes:
+    event: dict[str, Any] = {"type": "error", "code": code, "message": message}
+    if request_id:
+        event["request_id"] = request_id
+    if http_status is not None:
+        event["http_status"] = http_status
+    return encode_event(event)
 
 
 class KeepAliveWriter:
@@ -33,10 +43,12 @@ class KeepAliveWriter:
         stream: BinaryIO,
         interval: float | None = None,
         clock: Callable[[], float] = time.monotonic,
+        on_failure: Callable[[], None] | None = None,
     ) -> None:
         self._stream = stream
         self._interval = interval if interval is not None else KEEPALIVE_SECONDS
         self._clock = clock
+        self._on_failure = on_failure
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._last = clock()
@@ -76,6 +88,11 @@ class KeepAliveWriter:
                     self._last = self._clock()
                 except (BrokenPipeError, ConnectionResetError, ValueError) as error:
                     self.failure = error
+                    if self._on_failure is not None:
+                        try:
+                            self._on_failure()
+                        except Exception:
+                            pass
                     return
 
     def __enter__(self) -> "KeepAliveWriter":

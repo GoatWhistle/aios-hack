@@ -7,6 +7,7 @@ import { InfrastructureTable } from '@/pages/money-constraints/ui/Infrastructure
 import { OutageTable } from '@/pages/money-constraints/ui/OutageTable/OutageTable';
 import { parseJsonText, type ParseFailure } from '@/pages/money-constraints/model/parseDocument';
 import { useEditor } from '@/pages/money-constraints/model/useEditor';
+import { useScenario } from '@/entities/scenarios/model/ScenarioContext';
 import { YearSectionTable } from '@/pages/money-constraints/ui/YearSectionTable/YearSectionTable';
 import './ScenariosEditor.css';
 import './ScenariosGrid.css';
@@ -20,6 +21,7 @@ const DOWNLOAD_NAME = 'constraints.json';
 export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
   const t = useT();
   const editor = useEditor(nIntervals);
+  const { activeId } = useScenario();
   const fileInput = useRef<HTMLInputElement>(null);
   const [loadError, setLoadError] = useState<ParseFailure | null>(null);
   const [loadedName, setLoadedName] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
         />
       </div>
 
-      <LiveRuns document={editor.document} blocked={blocked} onLoadConditions={(document) => {
+      <LiveRuns document={editor.document} scenario={activeId || 'base'} blocked={blocked} onLoadConditions={(document) => {
         const parsed = parseJsonText(JSON.stringify(document), nIntervals);
         if (parsed.ok) editor.setState(parsed.state);
       }} />

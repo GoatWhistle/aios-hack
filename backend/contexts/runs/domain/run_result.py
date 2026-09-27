@@ -75,6 +75,7 @@ class RunResult:
 class OpmRunArtifact(RunResult):
 
     content_hash_opm: str
+    image_reference: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

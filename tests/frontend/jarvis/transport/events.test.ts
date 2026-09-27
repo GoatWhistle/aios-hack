@@ -116,6 +116,29 @@ describe('console actions are filtered against the real route table', () => {
     expect(action?.step).toBe(12);
   });
 
+  it('preserves run-backed companion and measured-connection action flags', () => {
+    const action = parseConsoleAction({
+      companion_only: true,
+      connections_available: true,
+      run_id: 'run-a',
+      scenario: 'base',
+      workspace: 'field',
+      view: 'maps',
+      well: '19',
+      step: 210
+    });
+    expect(action).toMatchObject({
+      companion_only: true,
+      connections_available: true,
+      run_id: 'run-a',
+      scenario: 'base',
+      workspace: 'field',
+      view: 'maps',
+      well: '19',
+      step: 210
+    });
+  });
+
   it('drops a view that does not belong to the workspace but keeps the workspace', () => {
     const action = parseConsoleAction({ workspace: 'money', view: 'projection' });
     expect(action?.workspace).toBe('money');
@@ -130,6 +153,10 @@ describe('console actions are filtered against the real route table', () => {
 
   it('keeps an explicit null well as a deselect', () => {
     expect(parseConsoleAction({ well: null })?.well).toBeNull();
+  });
+
+  it('preserves a typed request to restore the previous console focus', () => {
+    expect(parseConsoleAction({ restore_previous: true })?.restore_previous).toBe(true);
   });
 
   it('returns null for a non-object action', () => {

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Mapping
 
 from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
@@ -27,9 +28,15 @@ SUPPORTED: tuple[str, ...] = (
 )
 
 
-def _state_rows(index: ScenarioIndex, well: str | None) -> list[StateAtDate]:
+def _state_rows(
+    index: ScenarioIndex,
+    well: str | None,
+    check_cancelled: Callable[[], None] | None = None,
+) -> list[StateAtDate]:
     rows: list[StateAtDate] = []
     for position, step in enumerate(index.timeline["steps"]):
+        if check_cancelled is not None:
+            check_cancelled()
         for row in step["wells"]:
             name = str(row["well"])
             if well is not None and name != well:
@@ -50,11 +57,17 @@ def _state_rows(index: ScenarioIndex, well: str | None) -> list[StateAtDate]:
     return rows
 
 
-def _watercut_rise(index: ScenarioIndex, well: str | None) -> list[Finding]:
+def _watercut_rise(
+    index: ScenarioIndex,
+    well: str | None,
+    check_cancelled: Callable[[], None] | None = None,
+) -> list[Finding]:
     steps = index.timeline["steps"]
     previous: dict[str, dict[str, Any]] = {}
     findings: list[Finding] = []
     for position, step in enumerate(steps):
+        if check_cancelled is not None:
+            check_cancelled()
         current: dict[str, dict[str, Any]] = {}
         for row in step["wells"]:
             name = str(row["well"])
@@ -88,11 +101,15 @@ def _watercut_rise(index: ScenarioIndex, well: str | None) -> list[Finding]:
 
 
 def _injection_without_response(
-    index: ScenarioIndex, well: str | None
+    index: ScenarioIndex,
+    well: str | None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> list[Finding]:
     steps = index.timeline["steps"]
     by_well: dict[str, list[tuple[int, float, float]]] = {}
     for position, step in enumerate(steps):
+        if check_cancelled is not None:
+            check_cancelled()
         production = float(step["field"]["production"] or 0.0)
         for row in step["wells"]:
             name = str(row["well"])
@@ -106,6 +123,8 @@ def _injection_without_response(
     findings: list[Finding] = []
     for name, rows in by_well.items():
         for start in range(0, len(rows) - WINDOW_STEPS + 1):
+            if check_cancelled is not None and start % 128 == 0:
+                check_cancelled()
             window = rows[start : start + WINDOW_STEPS]
             if window[-1][0] - window[0][0] != WINDOW_STEPS - 1:
                 continue
@@ -131,6 +150,12 @@ def _injection_without_response(
 
 def _as_payload(index: ScenarioIndex, finding: Finding) -> dict[str, Any]:
     window = list(finding.window) if finding.window is not None else None
+    window_dates = (
+        [index.dates[step] for step in finding.window]
+        if finding.window is not None
+        and all(0 <= step < len(index.dates) for step in finding.window)
+        else None
+    )
     return {
         "pattern_id": finding.pattern_id,
         "name": finding.name_ru,
@@ -144,6 +169,7 @@ def _as_payload(index: ScenarioIndex, finding: Finding) -> dict[str, Any]:
             else None
         ),
         "window": window,
+        "window_dates": window_dates,
         "inputs": dict(finding.inputs),
     }
 
@@ -167,11 +193,14 @@ def find_patterns(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     findings: list[Finding] = []
     findings.extend(
         detect_pressure_drop_at_high_rates(
-            _state_rows(index, well), BHP_DROP_MIN, LIQUID_RATE_MIN
+            _state_rows(index, well, context.check_cancelled),
+            BHP_DROP_MIN,
+            LIQUID_RATE_MIN,
+            context.check_cancelled,
         )
     )
-    findings.extend(_watercut_rise(index, well))
-    findings.extend(_injection_without_response(index, well))
+    findings.extend(_watercut_rise(index, well, context.check_cancelled))
+    findings.extend(_injection_without_response(index, well, context.check_cancelled))
     if pattern is not None:
         findings = [item for item in findings if item.pattern_id == str(pattern)]
     if not findings:

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from backend.contexts.assistant.domain.errors import UpstreamError
 from backend.contexts.assistant.infrastructure.llm.anthropic_chat import AnthropicChatClient
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
     ChatMessage,
@@ -116,8 +117,9 @@ def test_provider_prefers_openrouter() -> None:
 def test_provider_falls_back_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
     created: dict[str, Any] = {}
 
-    def factory(api_key: str) -> Any:
+    def factory(api_key: str, timeout: float) -> Any:
         created["key"] = api_key
+        created["timeout"] = timeout
         return _Sdk(_Response([], "end_turn"))
 
     monkeypatch.setattr(
@@ -127,6 +129,7 @@ def test_provider_falls_back_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> No
     assert isinstance(client, AnthropicChatClient)
     assert client.provider == "anthropic"
     assert created["key"] == "b"
+    assert created["timeout"] == 60.0
 
 
 def test_provider_strips_vendor_prefix_for_anthropic(
@@ -134,7 +137,7 @@ def test_provider_strips_vendor_prefix_for_anthropic(
 ) -> None:
     monkeypatch.setattr(
         "backend.contexts.assistant.infrastructure.llm.anthropic_chat._sdk",
-        lambda api_key: _Sdk(_Response([], "end_turn")),
+        lambda api_key, timeout: _Sdk(_Response([], "end_turn")),
     )
     client = build_client(
         {"ANTHROPIC_API_KEY": "b", "JARVIS_MODEL": "anthropic/claude-sonnet-4.5"}
@@ -168,6 +171,44 @@ def test_anthropic_stream_maps_blocks() -> None:
     assert events[1].args == {"by": "npv"}
     assert isinstance(events[2], Done)
     assert events[2].usage == {"input_tokens": 5, "output_tokens": 3}
+
+
+def test_anthropic_request_uses_bounded_timeout() -> None:
+    class RecordingMessages:
+        request: dict[str, Any] | None = None
+
+        def create(self, **request: Any) -> Any:
+            self.request = request
+            return _Response([], "end_turn")
+
+    messages = RecordingMessages()
+    client = AnthropicChatClient(api_key="k", timeout=12.5, sdk=type("S", (), {"messages": messages})())
+    list(client.stream([ChatMessage(role="user", content="?")], [], "s"))
+    assert messages.request is not None
+    assert messages.request["timeout"] == 12.5
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [(401, "provider-auth"), (429, "provider-rate-limit"), (503, "provider-server-error")],
+)
+def test_anthropic_http_errors_are_normalized(status: int, code: str) -> None:
+    class APIError(Exception):
+        status_code = status
+
+    class FailedMessages:
+        def create(self, **request: Any) -> Any:
+            raise APIError("sensitive provider details")
+
+    class FailedSdk:
+        messages = FailedMessages()
+
+    client = AnthropicChatClient(api_key="k", sdk=FailedSdk())
+    with pytest.raises(UpstreamError) as error:
+        list(client.stream([ChatMessage(role="user", content="?")], [], "s"))
+    assert error.value.code == code
+    assert error.value.details["http_status"] == status
+    assert "sensitive provider details" not in str(error.value)
 
 
 def test_fake_client_replays_rounds_then_caption() -> None:

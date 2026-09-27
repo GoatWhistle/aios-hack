@@ -5,6 +5,7 @@ export const CARD_TYPES = [
   'metric',
   'well',
   'well-list',
+  'well-comparison',
   'field-map',
   'series',
   'rule',
@@ -18,10 +19,14 @@ export const CARD_TYPES = [
   'system-map',
   'status-board',
   'run-list',
+  'run-status',
+  'submission',
   'run',
   'constraints',
   'council',
-  'physics'
+  'physics',
+  'case-proposal',
+  'alternative-proposal'
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -38,6 +43,8 @@ export type { ConsoleAction };
 
 export interface JarvisAskContext {
   scenario: string;
+  run_id?: string | null;
+  context_version?: string;
   step: number;
   date: string;
   selected_well: string | null;

@@ -7,6 +7,7 @@ const docHit = (value: unknown): DocHit | null => {
   }
   return {
     source: value.source,
+    ...(isStr(value.url) ? { url: value.url } : {}),
     heading: isStr(value.heading) ? value.heading : '',
     anchor: strOrNull(value.anchor),
     snippet: isStr(value.snippet) ? value.snippet : '',

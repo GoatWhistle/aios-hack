@@ -46,6 +46,22 @@
   color: var(--color-text);
 }
 
+.jarvis-run-select {
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jarvis-run-select[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .jarvis-runs-table tbody tr[data-sound='true'] .jarvis-runs-id {
   color: var(--color-accent);
 }

@@ -1,0 +1,628 @@
+{
+  "bhp_gate_delta_bar": null,
+  "bhp_gate_delta_detail": "metrics report /Users/kaifarikman/hackathons/aios-hackv2/out/surrogate-metrics.json was not read: the P95 error of the BHP channel is unmeasured and must not be invented. The previous behaviour is preserved — search lets BHP violations through, submission blocks them; the gate difference is documented by this note",
+  "bhp_gate_delta_origin": "unmeasured-report-absent",
+  "budget": 10,
+  "evaluations": [
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.30890756800716,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 3.0,
+        "r2_gain": 0.3,
+        "r2_watercut_pivot": 0.9,
+        "r3_months_in_loss": 3.0,
+        "r3_reopen_margin": 0.2,
+        "r5_compensation_high": 1.15,
+        "r5_compensation_low": 0.9,
+        "r6_payback_years": 5.0,
+        "r7_cycle_months": 3.0,
+        "r7_watercut_floor": 0.95
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.309; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 124.53027365373072,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 5.740029313797587,
+        "r2_gain": 0.0514221608430353,
+        "r2_watercut_pivot": 0.8075763791372051,
+        "r3_months_in_loss": 1.2357980196489267,
+        "r3_reopen_margin": 0.0865309863219971,
+        "r5_compensation_high": 1.077810646430746,
+        "r5_compensation_low": 0.8839083547261141,
+        "r6_payback_years": 4.424535282043429,
+        "r7_cycle_months": 6.718784920724375,
+        "r7_watercut_floor": 0.9447495626504926
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=124.53; the joint density of the schedule 124.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.21536476048044,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 0.19552808419880563,
+        "r2_gain": 0.3248674888420443,
+        "r2_watercut_pivot": 0.9390657784435696,
+        "r3_months_in_loss": 2.214428147623709,
+        "r3_reopen_margin": 0.3458563431263635,
+        "r5_compensation_high": 1.1409653747734256,
+        "r5_compensation_low": 0.9428606408154722,
+        "r6_payback_years": 13.227440277640278,
+        "r7_cycle_months": 5.495184573136857,
+        "r7_watercut_floor": 0.8813625643296381
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.215; the joint density of the schedule 129.2 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 128.45601713024246,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 7.582565393088869,
+        "r2_gain": 0.1876744281544927,
+        "r2_watercut_pivot": 0.8303533019433129,
+        "r3_months_in_loss": 3.9771073590048807,
+        "r3_reopen_margin": 0.13508571610573936,
+        "r5_compensation_high": 1.0952011531335248,
+        "r5_compensation_low": 0.9122545645999502,
+        "r6_payback_years": 3.1526651383138766,
+        "r7_cycle_months": 1.2150740186940494,
+        "r7_watercut_floor": 0.9565768897467881
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=128.456; the joint density of the schedule 128.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.33653642387117,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 3.8986965600221697,
+        "r2_gain": 0.33320274120477256,
+        "r2_watercut_pivot": 0.7772599856840741,
+        "r3_months_in_loss": 1.1236075112103165,
+        "r3_reopen_margin": 0.1081793197046198,
+        "r5_compensation_high": 1.1419324521783611,
+        "r5_compensation_low": 0.8605423170310061,
+        "r6_payback_years": 3.4903966910185638,
+        "r7_cycle_months": 5.399706676671024,
+        "r7_watercut_floor": 0.9576956103860944
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.337; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.57911156374004,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 1.5977214373215718,
+        "r2_gain": 0.17907879815999866,
+        "r2_watercut_pivot": 0.8650591966474184,
+        "r3_months_in_loss": 1.8409269354404638,
+        "r3_reopen_margin": 0.3158522075480497,
+        "r5_compensation_high": 1.1414025303123227,
+        "r5_compensation_low": 0.9522243359119875,
+        "r6_payback_years": 10.710876244494685,
+        "r7_cycle_months": 3.677468870772375,
+        "r7_watercut_floor": 0.9666646203397782
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.579; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.3953381063028,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 4.5555193538745655,
+        "r2_gain": 0.8727075232781958,
+        "r2_watercut_pivot": 0.9298813339622527,
+        "r3_months_in_loss": 8.53627981761186,
+        "r3_reopen_margin": 0.003961982393187513,
+        "r5_compensation_high": 1.146686422287445,
+        "r5_compensation_low": 0.8879145709196066,
+        "r6_payback_years": 4.605307230374116,
+        "r7_cycle_months": 7.5559528186860945,
+        "r7_watercut_floor": 0.9793914897254762
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.395; the joint density of the schedule 129.4 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.25159091835968,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 2.751379819084973,
+        "r2_gain": 0.5211581072247133,
+        "r2_watercut_pivot": 0.8422991152624193,
+        "r3_months_in_loss": 1.6884200660275452,
+        "r3_reopen_margin": 0.10023423482896586,
+        "r5_compensation_high": 1.1154167266162651,
+        "r5_compensation_low": 0.9004648004382629,
+        "r6_payback_years": 2.8335616139447604,
+        "r7_cycle_months": 6.198899988030815,
+        "r7_watercut_floor": 0.9120565802985527
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.252; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 130.0173604419006,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 2.3921409755344882,
+        "r2_gain": 0.09773707814427252,
+        "r2_watercut_pivot": 0.869291337372083,
+        "r3_months_in_loss": 2.058406872473235,
+        "r3_reopen_margin": 0.07522359459679885,
+        "r5_compensation_high": 1.1134797041371165,
+        "r5_compensation_low": 0.9083746790994444,
+        "r6_payback_years": 3.470560293884138,
+        "r7_cycle_months": 5.9155093047546945,
+        "r7_watercut_floor": 0.902022861659532
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=130.017; the joint density of the schedule 130 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "npv_parts": {},
+      "npv_predicted": null,
+      "ood_exceedances": [],
+      "ood_score": 129.6142164749389,
+      "ood_worst": null,
+      "physics_admissible": false,
+      "physics_complete": false,
+      "physics_counts": {},
+      "scenario_ood": 11.416658306122834,
+      "schedule_hash": "",
+      "static_violations": null,
+      "strategy": "cma-es",
+      "theta": {
+        "r1_lag_months": 3.7510072470465348,
+        "r2_gain": 0.16674784080009186,
+        "r2_watercut_pivot": 0.8850102454108366,
+        "r3_months_in_loss": 4.8217350528890215,
+        "r3_reopen_margin": 0.14800811793471744,
+        "r5_compensation_high": 1.1252281472087957,
+        "r5_compensation_low": 0.8831463155803007,
+        "r6_payback_years": 8.082767964404795,
+        "r7_cycle_months": 8.098836365876318,
+        "r7_watercut_floor": 0.9787155868537339
+      },
+      "violations": [
+        {
+          "regret": 1.0,
+          "scenario_id": "surrogate-rejected",
+          "what": "candidate is outside the training domain: ood_score=129.614; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "32209ecc1f6f2e46184414567401284f55409221dde361dfa23ee293b5a98ff3",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {},
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: the reference is unavailable, differential invariants were not checked: INJECTION_RESPONSE, MATERIAL_BALANCE; the reference/candidate pair is unsuitable for checking: the reference and the candidate are one and the same schedule: differential invariants are undefined"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "84c7c7f62390616bd012c3d3f7bdefdc556bd0922bef3d5cd8132da0dfd8d164",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 32470.4 m3 more water was produced while injection grew by -7748.0 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "ad4f9b52628717a3163c5527851c436dee91842e6b5f9f3782ad27f344d45a2b",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 53018.0 m3 more water was produced while injection grew by -15078.4 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "5d6531426de2e610bacd133e698fdacece20fd07f3f835d3fce6613bf367de25",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 20442.6 m3 more water was produced while injection grew by -17985.7 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "1f129b525409ea54a276ab3ac24ed1c1f95b63be253d881ded1fb1c1ee3f5ac4",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 2411.5 m3 more water was produced while injection grew by -11390.4 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "1b49c8b478dc06407248d4ba04bfb7a1cbe93c861ae0decf00408507da401b3d",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 26533.6 m3 more water was produced while injection grew by -6138.2 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "cb3a344c71f660a923074396c002a392e35448f046a6fce0a7ea376b9f8360f8",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 17268.5 m3 more water was produced while injection grew by -10058.5 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "449ed7a53338d8576ba90735e3dbebea4ed28cc7020156d6423c463e4e3781b2",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 14379.4 m3 more water was produced while injection grew by -254.1 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "ca3da4849533df15e1864f9bb3413aee4b0e1c1a752045bb22527b7f1caa3c34",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 13532.5 m3 more water was produced while injection grew by 334.5 m3: the water came from nowhere"
+        }
+      ]
+    },
+    {
+      "strategy": "lambda-connectivity-transfer",
+      "schedule_hash": "0e66a167b239dc1e9a86829c8e65e3fc0ff7ea4efe4fe3fb79485521254ced5d",
+      "theta": {},
+      "npv_predicted": null,
+      "npv_parts": {},
+      "ood_score": null,
+      "ood_worst": null,
+      "ood_exceedances": [],
+      "scenario_ood": 11.416658306122834,
+      "physics_counts": {
+        "MATERIAL_BALANCE": 1
+      },
+      "physics_complete": false,
+      "physics_admissible": false,
+      "static_violations": 0,
+      "dynamic_blocking_violations": null,
+      "feasible": false,
+      "violations": [
+        {
+          "scenario_id": "surrogate-rejected",
+          "regret": 1,
+          "what": "candidate is physically impossible: physics_complete=true; MATERIAL_BALANCE×1; for example well <field>, step None: 5928.8 m3 more water was produced while injection grew by -8418.6 m3: the water came from nowhere"
+        }
+      ]
+    }
+  ],
+  "final_cap": 8,
+  "incumbents": [],
+  "model_version": "7ac268e6c20f6bd9fa31edf4693827d7881a236ef50f65ae7cae3286ae0478f4",
+  "npv_head_version": "2eea7cac24b3b6140107fffd9ff5cd8fab54e3dc824b8f3628533c0fa4d74d30",
+  "ood_penalty_per_unit": 0.0,
+  "ood_soft_penalty": false,
+  "ood_threshold": 0.0,
+  "ood_threshold_calibrated": false,
+  "ood_threshold_origin": "uncalibrated-conservative-default",
+  "search_cap": 2,
+  "seed": 20260816,
+  "fallback_budget": 10
+}

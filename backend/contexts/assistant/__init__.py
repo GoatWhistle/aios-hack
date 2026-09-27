@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from backend.contexts.assistant.application.assistant_service import JarvisService
-from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunStore
 from backend.contexts.assistant.infrastructure.docs_index import (
     DocsIndex,
     DocsIndexError,
@@ -17,7 +17,7 @@ from backend.shared.settings import Settings
 
 def build_assistant(settings: Settings | None = None) -> JarvisService:
     chosen = settings if settings is not None else Settings.from_env()
-    store = ArtifactStore(chosen.jarvis_runs or chosen.data_root)
+    store = ArtifactStore(chosen.ui_data_root) if chosen.ui_data_root is not None else ArtifactStore()
     knowledge = KnowledgeStore(chosen.jarvis_knowledge)
     docs = _docs_index(chosen)
     system = _system_map(chosen)
@@ -26,6 +26,7 @@ def build_assistant(settings: Settings | None = None) -> JarvisService:
     stt = SttEngine(chosen.raw)
     return JarvisService(
         store=store,
+        runs=RunStore(chosen.jarvis_runs) if chosen.jarvis_runs is not None else RunStore(),
         knowledge=knowledge,
         env=chosen.raw,
         docs=docs,

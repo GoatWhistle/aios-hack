@@ -1,6 +1,6 @@
 {
   "orbitLabel": "Карточки ответа",
-  "railBead": "Сцена: {question}",
+  "railBead": "Сцена: {question}. Контекст: {context}",
   "railLabel": "Лента памяти",
   "railNoCards": "без карточек",
   "sessionNew": "Новая сессия",

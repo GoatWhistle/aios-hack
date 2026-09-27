@@ -63,11 +63,26 @@ const readStream = async function* (
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  const cancelReader = () => {
+    void reader.cancel().catch(() => undefined);
+  };
+  signal.addEventListener('abort', cancelReader, { once: true });
+  if (signal.aborted) cancelReader();
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) {
-        break;
+        buffer += decoder.decode();
+        if (buffer.length > 0) {
+          const { frames } = parseSseChunk(`${buffer}\n\n`);
+          for (const frame of frames) {
+            const event = parseEventLine(frame.data);
+            if (event !== null) {
+              yield event;
+            }
+          }
+        }
+        return;
       }
       buffer += decoder.decode(value, { stream: true });
       const { frames, rest } = parseSseChunk(buffer);
@@ -80,6 +95,7 @@ const readStream = async function* (
       }
     }
   } finally {
+    signal.removeEventListener('abort', cancelReader);
     reader.releaseLock();
   }
 };
@@ -97,6 +113,7 @@ export const createSseTransport = ({ fetchImpl }: SseOptions = {}): JarvisTransp
         signal
       });
     } catch {
+      if (signal.aborted) return;
       yield { type: 'error', code: 'upstream', message: 'jarvis service is unreachable' };
       return;
     }
@@ -114,7 +131,30 @@ export const createSseTransport = ({ fetchImpl }: SseOptions = {}): JarvisTransp
       };
       return;
     }
-    yield* readStream(response.body, signal);
+    let terminal = false;
+    try {
+      for await (const event of readStream(response.body, signal)) {
+        if (event.type === 'done' || event.type === 'error') {
+          terminal = true;
+        }
+        yield event;
+      }
+    } catch {
+      if (signal.aborted || terminal) return;
+      yield {
+        type: 'error',
+        code: 'incomplete-stream',
+        message: 'the event stream ended before Jarvis completed the answer'
+      };
+      return;
+    }
+    if (!signal.aborted && !terminal) {
+      yield {
+        type: 'error',
+        code: 'incomplete-stream',
+        message: 'the event stream ended before Jarvis completed the answer'
+      };
+    }
   }
 });
 

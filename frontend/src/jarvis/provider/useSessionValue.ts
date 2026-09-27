@@ -36,6 +36,9 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
   const { playing, togglePlay } = usePlayback();
   const [transition, dispatchTransition] = useReducer(transitionReducer, CLOSED);
   const [crossfade, setCrossfade] = useState(readReducedMotion);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [companionVisible, setCompanionVisible] = useState(false);
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
   const active = useMemo(() => transport ?? createTransport(), [transport]);
 
@@ -44,20 +47,25 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
   const askContext = useMemo<JarvisAskContext>(
     () => ({
       scenario: activeId === '' ? 'base' : activeId,
+      run_id: selectedRunId,
       step: stepIndex,
       date,
       selected_well: selectedWell,
       workspace,
-      view
+      view,
+      context_version: JSON.stringify([activeId, selectedRunId, stepIndex, date, selectedWell, workspace, view])
     }),
-    [activeId, stepIndex, date, selectedWell, workspace, view]
+    [activeId, selectedRunId, stepIndex, date, selectedWell, workspace, view]
   );
 
   const session = useJarvisSession(active, lang, askContext);
-  const { cancel, pushEvents, sessionId } = session;
+  const { cancel, pushEvents, mergeEvents, sessionId } = session;
   const sceneCount = session.scenes.scenes.length;
 
-  const open = useCallback(() => dispatchTransition({ kind: 'open' }), []);
+  const open = useCallback(() => {
+    setCompanionVisible(false);
+    dispatchTransition({ kind: 'open' });
+  }, []);
   const close = useCallback(() => dispatchTransition({ kind: 'close' }), []);
   const settle = useCallback(
     (phase: TransitionPhase) => dispatchTransition({ kind: 'settled', phase }),
@@ -76,6 +84,9 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
     open: transition.phase === 'open',
     sessionId,
     sceneCount,
+    hasBriefing: session.scenes.scenes.some((item) => item.sourceId === 'briefing'),
+    mergeEvents,
+    setLoading: setBriefingLoading,
     lang,
     scenario: askContext.scenario,
     step: askContext.step,
@@ -89,10 +100,13 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
   const retry = useCallback(() => {
     probe();
     if (current !== undefined && current.question.length > 0) {
-      askQuestion(current.question);
+      askQuestion(current.question, current.context);
     }
   }, [probe, askQuestion, current]);
-  const applyAction = useConsoleActions();
+  const selectRun = useCallback((runId: string | null) => setSelectedRunId(runId), []);
+  const { applyAction, canRestorePrevious } = useConsoleActions(selectRun, selectedRunId);
+  const showCompanion = useCallback(() => setCompanionVisible(true), []);
+  const hideCompanion = useCallback(() => setCompanionVisible(false), []);
 
   return useMemo<JarvisSessionValue>(
     () => ({
@@ -106,10 +120,16 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
       crossfade,
       requestCrossfade,
       askContext,
+      selectRun,
+      companionVisible,
+      briefingLoading,
+      showCompanion,
+      hideCompanion,
       transportMode: active.mode,
       capabilities,
       retry,
-      applyAction
+      applyAction,
+      canRestorePrevious
     }),
     [
       session,
@@ -120,10 +140,16 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
       crossfade,
       requestCrossfade,
       askContext,
+      selectRun,
+      companionVisible,
+      briefingLoading,
+      showCompanion,
+      hideCompanion,
       active.mode,
       capabilities,
       retry,
-      applyAction
+      applyAction,
+      canRestorePrevious
     ]
   );
 };

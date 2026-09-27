@@ -149,11 +149,15 @@ const timelineFixture: TimelineFile = {
 };
 
 let hierarchyPayload: HierarchyFile = hierarchyFixture;
+let hierarchyUnavailable = false;
 
 const mockFetch = () => {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
+      if (hierarchyUnavailable && url.includes('hierarchy-index')) {
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+      }
       const stepMatch = /hierarchy\/(\d+)\.json/.exec(url);
       const payload = stepMatch !== null
         ? hierarchyPayload.steps[Number(stepMatch[1])]
@@ -207,6 +211,7 @@ const renderCouncil = async (step = 0, well: string | null = null) => {
 beforeEach(() => {
   localStorage.clear();
   hierarchyPayload = hierarchyFixture;
+  hierarchyUnavailable = false;
   mockFetch();
 });
 
@@ -722,6 +727,14 @@ describe('Council refuses to guess when hierarchy and timeline disagree', () => 
 });
 
 describe('stepFor bounds the hierarchy lookup', () => {
+  it('explains that a missing decision log was not recorded', async () => {
+    hierarchyUnavailable = true;
+    renderCouncil(0, null);
+    expect(await screen.findByText(ru['council.unavailable'])).not.toBeNull();
+    expect(screen.getByText(ru['council.unavailableHint'])).not.toBeNull();
+    expect(screen.queryByText(ru['council.error'])).toBeNull();
+  });
+
   it('returns null past the end rather than the last step', () => {
     expect(stepFor(hierarchyFixture, STEP_COUNT)).toBeNull();
     expect(stepFor(hierarchyFixture, -1)).toBeNull();

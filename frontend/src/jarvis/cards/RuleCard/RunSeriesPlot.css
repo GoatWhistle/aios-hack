@@ -1,0 +1,75 @@
+.jarvis-run-series {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.jarvis-run-series-plot {
+  display: block;
+  width: 100%;
+  height: 5rem;
+  overflow: visible;
+}
+
+.jarvis-run-series-axis {
+  stroke: var(--color-border);
+  stroke-width: 0.35;
+}
+
+.jarvis-run-series-current {
+  stroke: var(--color-accent);
+  stroke-dasharray: 1 1;
+  stroke-width: 0.5;
+}
+
+.jarvis-run-series-input,
+.jarvis-run-series-scheduled {
+  fill: none;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.jarvis-run-series-input {
+  stroke: var(--color-jarvis-body);
+}
+
+.jarvis-run-series-scheduled {
+  stroke: var(--color-accent);
+}
+
+.jarvis-run-series-legend,
+.jarvis-run-series-dates {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.jarvis-run-series-legend span[data-series='input']::before,
+.jarvis-run-series-legend span[data-series='scheduled']::before {
+  display: inline-block;
+  width: 0.75rem;
+  margin-inline-end: var(--space-1);
+  border-top: 2px solid var(--color-jarvis-body);
+  vertical-align: middle;
+  content: '';
+}
+
+.jarvis-run-series-legend span[data-series='scheduled']::before {
+  border-color: var(--color-accent);
+}
+
+.jarvis-run-series-unit,
+.jarvis-run-series-dates,
+.jarvis-run-series small {
+  color: var(--color-text-faint);
+}
+
+.jarvis-run-series-current-value {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}

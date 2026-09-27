@@ -5,6 +5,13 @@ export class InvalidPayloadError extends Error {
   }
 }
 
+export class ResourceNotFoundError extends Error {
+  constructor(url: string, status: number) {
+    super(`${status}: not found: ${url}`);
+    this.name = 'ResourceNotFoundError';
+  }
+}
+
 const TIMEOUT_MS = 15000;
 
 export const fetchJson = async <T,>(
@@ -22,6 +29,9 @@ export const fetchJson = async <T,>(
       credentials: 'omit'
     });
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new ResourceNotFoundError(url, response.status);
+      }
       throw new Error(String(response.status));
     }
     let data: unknown;

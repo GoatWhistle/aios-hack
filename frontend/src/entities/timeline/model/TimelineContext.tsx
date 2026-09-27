@@ -32,20 +32,25 @@ export const TimelineProvider = ({ children }: { children: ReactNode }) => {
   const trace = useDataset('trace');
   const [rawStepIndex, setStepIndex] = useState(0);
   const [selectedWell, setSelectedWell] = useState<string | null>(null);
+  const [timelineScenario, setTimelineScenario] = useState(activeId);
   const selectWell = useCallback((well: string | null) => setSelectedWell(well), []);
 
   useEffect(() => {
     setStepIndex(0);
     setSelectedWell(null);
+    setTimelineScenario(activeId);
   }, [activeId]);
 
-  const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
+  const scenarioReady = timelineScenario === activeId;
+  const currentTimeline = scenarioReady ? timeline : { status: 'loading' as const };
+  const currentTrace = scenarioReady ? trace : { status: 'loading' as const };
+  const stepCount = currentTimeline.status === 'ready' ? currentTimeline.data.steps.length : 0;
   const stepIndex =
     stepCount === 0 ? rawStepIndex : clamp(rawStepIndex, 0, stepCount - 1);
 
   const value = useMemo<TimelineContextValue>(
-    () => ({ timeline, trace, stepIndex, setStepIndex, selectedWell, selectWell }),
-    [timeline, trace, stepIndex, selectedWell, selectWell]
+    () => ({ timeline: currentTimeline, trace: currentTrace, stepIndex, setStepIndex, selectedWell, selectWell }),
+    [currentTimeline, currentTrace, stepIndex, selectedWell, selectWell]
   );
 
   return <TimelineContext.Provider value={value}>{children}</TimelineContext.Provider>;

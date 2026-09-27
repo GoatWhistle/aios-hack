@@ -1,5 +1,5 @@
 import { Sparkline } from '@/shared/ui/Sparkline';
-import { DASH, formatNumber } from '@/shared/lib/format';
+import { DASH, formatNumber, formatQuantity, formatUnit } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { readMetrics } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
@@ -14,13 +14,17 @@ const MetricRow = ({ metric }: { metric: MetricPayload }) => {
     <div className="jarvis-metric-row">
       <p className="jarvis-metric-label">{metric.label}</p>
       <p className="jarvis-metric-value">
-        <span className="jarvis-metric-number">{formatNumber(lang, metric.value)}</span>
-        <span className="jarvis-metric-unit">{metric.unit}</span>
+        <span className="jarvis-metric-number">{formatNumber(lang, metric.value, 2)}</span>
+        <span className="jarvis-metric-unit">
+          {metric.unit.trim() === '' ? t('jarvis-cards.unitNotSpecified') : formatUnit(lang, metric.unit)}
+        </span>
       </p>
       {metric.delta === null || metric.delta === 0 ? null : (
         <p className="jarvis-metric-delta" data-sign={metric.delta >= 0 ? 'up' : 'down'}>
           <span className="jarvis-metric-delta-label">{t('jarvis-cards.metricDelta')}</span>
-          {formatNumber(lang, metric.delta)}
+          {metric.unit.trim() === ''
+            ? `${formatNumber(lang, metric.delta, 2)} ${t('jarvis-cards.unitNotSpecified')}`
+            : formatQuantity(lang, metric.delta, metric.unit, 2)}
         </p>
       )}
       {values.length === 0 ? (

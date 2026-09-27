@@ -42,6 +42,16 @@
   color: var(--color-text);
 }
 
+.jarvis-doc-link {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.jarvis-doc-link:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .jarvis-doc-score {
   font-variant-numeric: tabular-nums;
   font-size: var(--font-size-xs);

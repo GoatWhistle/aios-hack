@@ -1,0 +1,478 @@
+{
+  "baseline": {
+    "run_id": "web-20260927-223804-b99c6fee",
+    "status": "failed",
+    "evaluations": 20,
+    "feasible": 0,
+    "seed": 20260816,
+    "threshold": 11.416658306122834,
+    "score_min": 124.53027365373072,
+    "score_median": 129.32272199593916,
+    "score_max": 130.0173604419006,
+    "strategies": {
+      "cma-es": 10,
+      "lambda-connectivity-transfer": 10
+    },
+    "first_ten": [
+      {
+        "theta": {
+          "r1_lag_months": 3.0,
+          "r2_gain": 0.3,
+          "r2_watercut_pivot": 0.9,
+          "r3_months_in_loss": 3.0,
+          "r3_reopen_margin": 0.2,
+          "r5_compensation_high": 1.15,
+          "r5_compensation_low": 0.9,
+          "r6_payback_years": 5.0,
+          "r7_cycle_months": 3.0,
+          "r7_watercut_floor": 0.95
+        },
+        "ood_score": 129.30890756800716,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.309; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 5.740029313797587,
+          "r2_gain": 0.0514221608430353,
+          "r2_watercut_pivot": 0.8075763791372051,
+          "r3_months_in_loss": 1.2357980196489267,
+          "r3_reopen_margin": 0.0865309863219971,
+          "r5_compensation_high": 1.077810646430746,
+          "r5_compensation_low": 0.8839083547261141,
+          "r6_payback_years": 4.424535282043429,
+          "r7_cycle_months": 6.718784920724375,
+          "r7_watercut_floor": 0.9447495626504926
+        },
+        "ood_score": 124.53027365373072,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=124.53; the joint density of the schedule 124.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 0.19552808419880563,
+          "r2_gain": 0.3248674888420443,
+          "r2_watercut_pivot": 0.9390657784435696,
+          "r3_months_in_loss": 2.214428147623709,
+          "r3_reopen_margin": 0.3458563431263635,
+          "r5_compensation_high": 1.1409653747734256,
+          "r5_compensation_low": 0.9428606408154722,
+          "r6_payback_years": 13.227440277640278,
+          "r7_cycle_months": 5.495184573136857,
+          "r7_watercut_floor": 0.8813625643296381
+        },
+        "ood_score": 129.21536476048044,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.215; the joint density of the schedule 129.2 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 7.582565393088869,
+          "r2_gain": 0.1876744281544927,
+          "r2_watercut_pivot": 0.8303533019433129,
+          "r3_months_in_loss": 3.9771073590048807,
+          "r3_reopen_margin": 0.13508571610573936,
+          "r5_compensation_high": 1.0952011531335248,
+          "r5_compensation_low": 0.9122545645999502,
+          "r6_payback_years": 3.1526651383138766,
+          "r7_cycle_months": 1.2150740186940494,
+          "r7_watercut_floor": 0.9565768897467881
+        },
+        "ood_score": 128.45601713024246,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=128.456; the joint density of the schedule 128.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 3.8986965600221697,
+          "r2_gain": 0.33320274120477256,
+          "r2_watercut_pivot": 0.7772599856840741,
+          "r3_months_in_loss": 1.1236075112103165,
+          "r3_reopen_margin": 0.1081793197046198,
+          "r5_compensation_high": 1.1419324521783611,
+          "r5_compensation_low": 0.8605423170310061,
+          "r6_payback_years": 3.4903966910185638,
+          "r7_cycle_months": 5.399706676671024,
+          "r7_watercut_floor": 0.9576956103860944
+        },
+        "ood_score": 129.33653642387117,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.337; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 1.5977214373215718,
+          "r2_gain": 0.17907879815999866,
+          "r2_watercut_pivot": 0.8650591966474184,
+          "r3_months_in_loss": 1.8409269354404638,
+          "r3_reopen_margin": 0.3158522075480497,
+          "r5_compensation_high": 1.1414025303123227,
+          "r5_compensation_low": 0.9522243359119875,
+          "r6_payback_years": 10.710876244494685,
+          "r7_cycle_months": 3.677468870772375,
+          "r7_watercut_floor": 0.9666646203397782
+        },
+        "ood_score": 129.57911156374004,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.579; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 4.5555193538745655,
+          "r2_gain": 0.8727075232781958,
+          "r2_watercut_pivot": 0.9298813339622527,
+          "r3_months_in_loss": 8.53627981761186,
+          "r3_reopen_margin": 0.003961982393187513,
+          "r5_compensation_high": 1.146686422287445,
+          "r5_compensation_low": 0.8879145709196066,
+          "r6_payback_years": 4.605307230374116,
+          "r7_cycle_months": 7.5559528186860945,
+          "r7_watercut_floor": 0.9793914897254762
+        },
+        "ood_score": 129.3953381063028,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.395; the joint density of the schedule 129.4 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 2.751379819084973,
+          "r2_gain": 0.5211581072247133,
+          "r2_watercut_pivot": 0.8422991152624193,
+          "r3_months_in_loss": 1.6884200660275452,
+          "r3_reopen_margin": 0.10023423482896586,
+          "r5_compensation_high": 1.1154167266162651,
+          "r5_compensation_low": 0.9004648004382629,
+          "r6_payback_years": 2.8335616139447604,
+          "r7_cycle_months": 6.198899988030815,
+          "r7_watercut_floor": 0.9120565802985527
+        },
+        "ood_score": 129.25159091835968,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.252; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 2.3921409755344882,
+          "r2_gain": 0.09773707814427252,
+          "r2_watercut_pivot": 0.869291337372083,
+          "r3_months_in_loss": 2.058406872473235,
+          "r3_reopen_margin": 0.07522359459679885,
+          "r5_compensation_high": 1.1134797041371165,
+          "r5_compensation_low": 0.9083746790994444,
+          "r6_payback_years": 3.470560293884138,
+          "r7_cycle_months": 5.9155093047546945,
+          "r7_watercut_floor": 0.902022861659532
+        },
+        "ood_score": 130.0173604419006,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=130.017; the joint density of the schedule 130 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 3.7510072470465348,
+          "r2_gain": 0.16674784080009186,
+          "r2_watercut_pivot": 0.8850102454108366,
+          "r3_months_in_loss": 4.8217350528890215,
+          "r3_reopen_margin": 0.14800811793471744,
+          "r5_compensation_high": 1.1252281472087957,
+          "r5_compensation_low": 0.8831463155803007,
+          "r6_payback_years": 8.082767964404795,
+          "r7_cycle_months": 8.098836365876318,
+          "r7_watercut_floor": 0.9787155868537339
+        },
+        "ood_score": 129.6142164749389,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.614; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+      }
+    ]
+  },
+  "edited": {
+    "run_id": "web-20260927-223857-a791eb0f",
+    "status": "failed",
+    "evaluations": 20,
+    "feasible": 0,
+    "seed": 20260816,
+    "threshold": 11.416658306122834,
+    "score_min": 124.53027365373072,
+    "score_median": 129.32272199593916,
+    "score_max": 130.0173604419006,
+    "strategies": {
+      "cma-es": 10,
+      "lambda-connectivity-transfer": 10
+    },
+    "first_ten": [
+      {
+        "theta": {
+          "r1_lag_months": 3.0,
+          "r2_gain": 0.3,
+          "r2_watercut_pivot": 0.9,
+          "r3_months_in_loss": 3.0,
+          "r3_reopen_margin": 0.2,
+          "r5_compensation_high": 1.15,
+          "r5_compensation_low": 0.9,
+          "r6_payback_years": 5.0,
+          "r7_cycle_months": 3.0,
+          "r7_watercut_floor": 0.95
+        },
+        "ood_score": 129.30890756800716,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.309; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 5.740029313797587,
+          "r2_gain": 0.0514221608430353,
+          "r2_watercut_pivot": 0.8075763791372051,
+          "r3_months_in_loss": 1.2357980196489267,
+          "r3_reopen_margin": 0.0865309863219971,
+          "r5_compensation_high": 1.077810646430746,
+          "r5_compensation_low": 0.8839083547261141,
+          "r6_payback_years": 4.424535282043429,
+          "r7_cycle_months": 6.718784920724375,
+          "r7_watercut_floor": 0.9447495626504926
+        },
+        "ood_score": 124.53027365373072,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=124.53; the joint density of the schedule 124.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 0.19552808419880563,
+          "r2_gain": 0.3248674888420443,
+          "r2_watercut_pivot": 0.9390657784435696,
+          "r3_months_in_loss": 2.214428147623709,
+          "r3_reopen_margin": 0.3458563431263635,
+          "r5_compensation_high": 1.1409653747734256,
+          "r5_compensation_low": 0.9428606408154722,
+          "r6_payback_years": 13.227440277640278,
+          "r7_cycle_months": 5.495184573136857,
+          "r7_watercut_floor": 0.8813625643296381
+        },
+        "ood_score": 129.21536476048044,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.215; the joint density of the schedule 129.2 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 7.582565393088869,
+          "r2_gain": 0.1876744281544927,
+          "r2_watercut_pivot": 0.8303533019433129,
+          "r3_months_in_loss": 3.9771073590048807,
+          "r3_reopen_margin": 0.13508571610573936,
+          "r5_compensation_high": 1.0952011531335248,
+          "r5_compensation_low": 0.9122545645999502,
+          "r6_payback_years": 3.1526651383138766,
+          "r7_cycle_months": 1.2150740186940494,
+          "r7_watercut_floor": 0.9565768897467881
+        },
+        "ood_score": 128.45601713024246,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=128.456; the joint density of the schedule 128.5 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 3.8986965600221697,
+          "r2_gain": 0.33320274120477256,
+          "r2_watercut_pivot": 0.7772599856840741,
+          "r3_months_in_loss": 1.1236075112103165,
+          "r3_reopen_margin": 0.1081793197046198,
+          "r5_compensation_high": 1.1419324521783611,
+          "r5_compensation_low": 0.8605423170310061,
+          "r6_payback_years": 3.4903966910185638,
+          "r7_cycle_months": 5.399706676671024,
+          "r7_watercut_floor": 0.9576956103860944
+        },
+        "ood_score": 129.33653642387117,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.337; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 1.5977214373215718,
+          "r2_gain": 0.17907879815999866,
+          "r2_watercut_pivot": 0.8650591966474184,
+          "r3_months_in_loss": 1.8409269354404638,
+          "r3_reopen_margin": 0.3158522075480497,
+          "r5_compensation_high": 1.1414025303123227,
+          "r5_compensation_low": 0.9522243359119875,
+          "r6_payback_years": 10.710876244494685,
+          "r7_cycle_months": 3.677468870772375,
+          "r7_watercut_floor": 0.9666646203397782
+        },
+        "ood_score": 129.57911156374004,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.579; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 4.5555193538745655,
+          "r2_gain": 0.8727075232781958,
+          "r2_watercut_pivot": 0.9298813339622527,
+          "r3_months_in_loss": 8.53627981761186,
+          "r3_reopen_margin": 0.003961982393187513,
+          "r5_compensation_high": 1.146686422287445,
+          "r5_compensation_low": 0.8879145709196066,
+          "r6_payback_years": 4.605307230374116,
+          "r7_cycle_months": 7.5559528186860945,
+          "r7_watercut_floor": 0.9793914897254762
+        },
+        "ood_score": 129.3953381063028,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.395; the joint density of the schedule 129.4 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 2.751379819084973,
+          "r2_gain": 0.5211581072247133,
+          "r2_watercut_pivot": 0.8422991152624193,
+          "r3_months_in_loss": 1.6884200660275452,
+          "r3_reopen_margin": 0.10023423482896586,
+          "r5_compensation_high": 1.1154167266162651,
+          "r5_compensation_low": 0.9004648004382629,
+          "r6_payback_years": 2.8335616139447604,
+          "r7_cycle_months": 6.198899988030815,
+          "r7_watercut_floor": 0.9120565802985527
+        },
+        "ood_score": 129.25159091835968,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.252; the joint density of the schedule 129.3 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 2.3921409755344882,
+          "r2_gain": 0.09773707814427252,
+          "r2_watercut_pivot": 0.869291337372083,
+          "r3_months_in_loss": 2.058406872473235,
+          "r3_reopen_margin": 0.07522359459679885,
+          "r5_compensation_high": 1.1134797041371165,
+          "r5_compensation_low": 0.9083746790994444,
+          "r6_payback_years": 3.470560293884138,
+          "r7_cycle_months": 5.9155093047546945,
+          "r7_watercut_floor": 0.902022861659532
+        },
+        "ood_score": 130.0173604419006,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=130.017; the joint density of the schedule 130 is above the threshold 11.42 (quantile 0.95 on validation)"
+      },
+      {
+        "theta": {
+          "r1_lag_months": 3.7510072470465348,
+          "r2_gain": 0.16674784080009186,
+          "r2_watercut_pivot": 0.8850102454108366,
+          "r3_months_in_loss": 4.8217350528890215,
+          "r3_reopen_margin": 0.14800811793471744,
+          "r5_compensation_high": 1.1252281472087957,
+          "r5_compensation_low": 0.8831463155803007,
+          "r6_payback_years": 8.082767964404795,
+          "r7_cycle_months": 8.098836365876318,
+          "r7_watercut_floor": 0.9787155868537339
+        },
+        "ood_score": 129.6142164749389,
+        "schedule_hash": "",
+        "feasible": false,
+        "reason": "candidate is outside the training domain: ood_score=129.614; the joint density of the schedule 129.6 is above the threshold 11.42 (quantile 0.95 on validation)"
+      }
+    ]
+  },
+  "paired_first_ten": [
+    {
+      "index": 1,
+      "same_theta": true,
+      "baseline_ood": 129.30890756800716,
+      "edited_ood": 129.30890756800716,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 2,
+      "same_theta": true,
+      "baseline_ood": 124.53027365373072,
+      "edited_ood": 124.53027365373072,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 3,
+      "same_theta": true,
+      "baseline_ood": 129.21536476048044,
+      "edited_ood": 129.21536476048044,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 4,
+      "same_theta": true,
+      "baseline_ood": 128.45601713024246,
+      "edited_ood": 128.45601713024246,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 5,
+      "same_theta": true,
+      "baseline_ood": 129.33653642387117,
+      "edited_ood": 129.33653642387117,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 6,
+      "same_theta": true,
+      "baseline_ood": 129.57911156374004,
+      "edited_ood": 129.57911156374004,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 7,
+      "same_theta": true,
+      "baseline_ood": 129.3953381063028,
+      "edited_ood": 129.3953381063028,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 8,
+      "same_theta": true,
+      "baseline_ood": 129.25159091835968,
+      "edited_ood": 129.25159091835968,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 9,
+      "same_theta": true,
+      "baseline_ood": 130.0173604419006,
+      "edited_ood": 130.0173604419006,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    },
+    {
+      "index": 10,
+      "same_theta": true,
+      "baseline_ood": 129.6142164749389,
+      "edited_ood": 129.6142164749389,
+      "delta": 0.0,
+      "same_schedule_hash": null
+    }
+  ]
+}

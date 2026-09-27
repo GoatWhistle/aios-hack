@@ -1,0 +1,39 @@
+.jarvis-walk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(100%, var(--size-prose-max));
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-walk-start,
+.jarvis-walk-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.jarvis-walk button {
+  min-height: var(--size-control-height);
+  padding: 0 var(--space-3);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.jarvis-walk button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jarvis-walk-progress {
+  margin: 0;
+  text-align: center;
+}

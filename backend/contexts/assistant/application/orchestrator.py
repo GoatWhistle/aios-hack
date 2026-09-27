@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
-from backend.contexts.assistant.application.answer import marker_position, split_answer
+from backend.contexts.assistant.application.answer import marker_position
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunStore
 from backend.contexts.assistant.infrastructure.docs_index import DocsIndex
 from backend.contexts.assistant.infrastructure.knowledge import Knowledge
@@ -44,6 +45,58 @@ from backend.contexts.assistant.infrastructure.llm.chat_events import (
     TextDelta,
     ToolCall,
 )
+
+
+_NEIGHBOR_REFERENCE = re.compile(r"(?:соседн\w*|neighbou?r\w*)", re.IGNORECASE)
+_EARLIER_REFERENCE = re.compile(
+    r"(?:раньше|предыдущ\w*\s+шаг|на\s+шаг\s+раньше|earlier|previous\s+step|one\s+step\s+back)",
+    re.IGNORECASE,
+)
+_HERE_FOLLOW_UP = re.compile(
+    r"^\s*(?:а\s+)?(?:(?:что|what)\s+)?(?:здесь|тут|here)\s*[?!.,\s]*$",
+    re.IGNORECASE,
+)
+_NAMED_WELL = re.compile(
+    r"(?:скважин[а-яё]*|wells?)\s*(?:№|#)?\s*(\d+)", re.IGNORECASE
+)
+_NAMED_NEIGHBOR = re.compile(
+    r"(?:соседн\w*|neighbou?r\w*)\s+(?:скважин[а-яё]*\s*)?(?:№|#)?\s*(\d+)",
+    re.IGNORECASE,
+)
+
+
+def _contextual_tool_preset(
+    question: str, console: ConsoleContext, session: Session | None = None
+) -> tuple[tuple[str, Mapping[str, Any]], ...]:
+    """Resolve clear contextual follow-ups using the active scene's data."""
+    selected = console.selected_well
+    if selected and _HERE_FOLLOW_UP.fullmatch(question):
+        arguments: dict[str, Any] = {"well": selected}
+        if console.step is not None:
+            arguments["step"] = console.step
+        return (("well_snapshot", arguments),)
+    if (
+        selected
+        and console.step is not None
+        and console.step > 0
+        and _EARLIER_REFERENCE.search(question)
+        and session is not None
+        and session.history
+        and "well" in session.history[-1].card_types
+    ):
+        previous_question = session.history[-1].question
+        named = _NAMED_WELL.search(previous_question)
+        if not named or named.group(1) == selected:
+            return (("well_snapshot", {"well": selected, "step": console.step - 1}),)
+    if not selected or not _NEIGHBOR_REFERENCE.search(question):
+        return ()
+    explicit = set(_NAMED_WELL.findall(question))
+    named_neighbour = _NAMED_NEIGHBOR.search(question)
+    if named_neighbour:
+        explicit.add(named_neighbour.group(1))
+    if any(well != selected for well in explicit):
+        return ()
+    return (("connectivity", {"well": selected}),)
 
 
 class Orchestrator:
@@ -109,8 +162,9 @@ class Orchestrator:
         self, session_id: str, question: str, console: ConsoleContext
     ) -> Iterator[Event]:
         text = check_question(question)
-        session = self._sessions.start(session_id, console)
+        session, generation = self._sessions.start(session_id, console)
         started = self._clock()
+        wall_deadline = time.monotonic() + self._timeout
         self._record(
             session_id,
             {
@@ -122,7 +176,15 @@ class Orchestrator:
             console.lang,
         )
         try:
-            for event in self._run(session, text, console, started):
+            for event in self._run(
+                session,
+                text,
+                console,
+                started,
+                generation,
+                wall_deadline=wall_deadline,
+                preset=_contextual_tool_preset(text, console, session),
+            ):
                 self._record(session_id, event.as_dict(), console.lang)
                 yield event
         except Cancelled:
@@ -137,19 +199,26 @@ class Orchestrator:
                 },
             )
         finally:
-            self._sessions.finish(session_id)
+            self._sessions.finish(session_id, generation)
 
     def briefing(
         self, session_id: str, console: ConsoleContext
     ) -> Iterator[Event]:
-        session = self._sessions.start(session_id, console)
+        session, generation = self._sessions.start(session_id, console)
         started = self._clock()
+        wall_deadline = time.monotonic() + self._timeout
         question = (
             BRIEFING_QUESTION_EN if console.lang == "en" else BRIEFING_QUESTION_RU
         )
         try:
             yield from self._run(
-                session, question, console, started, preset=BRIEFING_TOOLS
+                session,
+                question,
+                console,
+                started,
+                generation,
+                wall_deadline=wall_deadline,
+                preset=BRIEFING_TOOLS,
             )
         except Cancelled:
             yield Event(
@@ -157,7 +226,7 @@ class Orchestrator:
                 {"code": "cancelled", "message": "briefing cancelled"},
             )
         finally:
-            self._sessions.finish(session_id)
+            self._sessions.finish(session_id, generation)
 
     def _record(
         self, session_id: str, body: Mapping[str, Any], lang: str
@@ -171,8 +240,8 @@ class Orchestrator:
         except Exception:
             return
 
-    def _checkpoint(self, session: Session, started: float) -> None:
-        if self._sessions.is_cancelled(session.session_id):
+    def _checkpoint(self, session: Session, generation: int, started: float) -> None:
+        if self._sessions.is_cancelled(session.session_id, generation):
             raise Cancelled(session.session_id)
         if self._clock() - started > self._timeout:
             raise TimeoutError(
@@ -192,7 +261,12 @@ class Orchestrator:
         messages.append(ChatMessage(role="user", content=question))
         return messages
 
-    def _context(self, console: ConsoleContext) -> ToolContext:
+    def _context(
+        self,
+        console: ConsoleContext,
+        cancellation=None,
+        deadline: float | None = None,
+    ) -> ToolContext:
         return ToolContext(
             store=self._store,
             console=console,
@@ -200,6 +274,8 @@ class Orchestrator:
             runs=self._runs,
             docs=self._docs,
             system=self._system,
+            cancellation=cancellation,
+            deadline=deadline,
         )
 
     def _live(self, context: ToolContext) -> dict[str, Any] | None:
@@ -211,6 +287,8 @@ class Orchestrator:
         question: str,
         console: ConsoleContext,
         started: float,
+        generation: int,
+        wall_deadline: float,
         preset: Sequence[tuple[str, Mapping[str, Any]]] = (),
     ) -> Iterator[Event]:
         scene_id = session.next_scene_id()
@@ -223,13 +301,14 @@ class Orchestrator:
                 "ts": self._now(),
                 "session_id": session.session_id,
             },
+            generation=generation,
         )
         if self._capabilities is not None:
             try:
                 yield Event("capabilities", self._capabilities())
             except Exception:
                 pass
-        context = self._context(console)
+        context = self._context(console, session.cancellation, wall_deadline)
         system = build_system_prompt(
             console,
             console.lang,
@@ -244,7 +323,7 @@ class Orchestrator:
         rounds = 0
         deltas: list[str] = []
         for name, arguments in preset:
-            self._checkpoint(session, started)
+            self._checkpoint(session, generation, started)
             yield Event("status", {"state": "tool", "tool": name})
             order += 1
             card, result = call_tool(context, ToolCall(id=f"p{order}", name=name, args=arguments))
@@ -268,40 +347,33 @@ class Orchestrator:
                 )
             )
         while True:
-            self._checkpoint(session, started)
+            self._checkpoint(session, generation, started)
             yield Event("status", {"state": "thinking"})
             calls: list[ToolCall] = []
             deltas = []
             in_answer = False
             final = rounds >= self._max_rounds
-            for event in self._client.stream(messages, specs, system):
-                self._checkpoint(session, started)
-                if isinstance(event, TextDelta):
-                    deltas.append(event.text)
-                    if in_answer:
-                        yield Event(
-                            "answer_delta",
-                            {"scene_id": scene_id, "text": event.text},
-                        )
-                        continue
-                    joined = "".join(deltas)
-                    if marker_position(joined) is None:
-                        yield Event(
-                            "caption_delta",
-                            {"scene_id": scene_id, "text": event.text},
-                        )
-                        continue
-                    in_answer = True
-                    tail = split_answer(joined).answer or ""
-                    if tail:
-                        yield Event(
-                            "answer_delta",
-                            {"scene_id": scene_id, "text": tail},
-                        )
-                elif isinstance(event, ToolCall):
-                    calls.append(event)
-                elif isinstance(event, Done):
-                    break
+            try:
+                stream = self._client.stream(
+                    messages, specs, system, session.cancellation
+                )
+                for event in stream:
+                    self._checkpoint(session, generation, started)
+                    if isinstance(event, TextDelta):
+                        deltas.append(event.text)
+                        if in_answer:
+                            continue
+                        joined = "".join(deltas)
+                        if marker_position(joined) is None:
+                            continue
+                        in_answer = True
+                    elif isinstance(event, ToolCall):
+                        calls.append(event)
+                    elif isinstance(event, Done):
+                        break
+            except Exception:
+                self._checkpoint(session, generation, started)
+                raise
             if not calls or final:
                 break
             rounds += 1
@@ -309,10 +381,11 @@ class Orchestrator:
                 ChatMessage(role="assistant", content=None, tool_calls=tuple(calls))
             )
             for call in calls:
-                self._checkpoint(session, started)
+                self._checkpoint(session, generation, started)
                 yield Event("status", {"state": "tool", "tool": call.name})
                 order += 1
                 card, result = call_tool(context, call)
+                self._checkpoint(session, generation, started)
                 cards.append(card)
                 yield Event(
                     "card",

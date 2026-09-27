@@ -37,6 +37,40 @@ def test_journal_returns_recorded_facts(store: ArtifactStore) -> None:
     assert card.payload["statement"]
 
 
+def test_journal_defaults_to_selected_well_and_control_step(store: ArtifactStore) -> None:
+    card = run_tool(
+        JOURNAL_TOOL,
+        make(
+            store,
+            scenario=WITH_TRACE,
+            selected_well="13",
+            step=10,
+        ),
+        {},
+    )
+
+    assert (card.payload["well"], card.payload["step"], card.payload["date"]) == (
+        "13",
+        10,
+        "2007-11-01",
+    )
+
+
+def test_journal_resolves_selected_date_to_control_step(store: ArtifactStore) -> None:
+    card = run_tool(
+        JOURNAL_TOOL,
+        make(
+            store,
+            scenario=WITH_TRACE,
+            selected_well="13",
+            date="2007-11-01",
+        ),
+        {},
+    )
+
+    assert (card.payload["step"], card.payload["date"]) == (10, "2007-11-01")
+
+
 def test_journal_numbers_come_only_from_the_trace(store: ArtifactStore) -> None:
     store_index = store.scenario(WITH_TRACE)
     recorded = store_index.trace["13"]["10"]

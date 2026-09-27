@@ -1,0 +1,23 @@
+{
+  "same_vector": true,
+  "max_abs_feature_difference": 0.0,
+  "changed_features": 0,
+  "baseline": {
+    "score": 129.30890756800716,
+    "vector_sha256": "3aa77eb4c59ba02585cc8a8b1ed9fe1de9376b80da48e3c9e443c7c6da850859",
+    "embedding_sha256": "2c446e5737fde69b7dda7099907cf13e4767669079fdaecccce54fc2f014c47b",
+    "width": 2908,
+    "active_features": 2908,
+    "version": "be71b6447054c7157004048754ab65665de6bd28c1011f988c57932dca0d6a4d",
+    "threshold": 11.416658306122834
+  },
+  "edited": {
+    "score": 129.30890756800716,
+    "vector_sha256": "3aa77eb4c59ba02585cc8a8b1ed9fe1de9376b80da48e3c9e443c7c6da850859",
+    "embedding_sha256": "2c446e5737fde69b7dda7099907cf13e4767669079fdaecccce54fc2f014c47b",
+    "width": 2908,
+    "active_features": 2908,
+    "version": "be71b6447054c7157004048754ab65665de6bd28c1011f988c57932dca0d6a4d",
+    "threshold": 11.416658306122834
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { Card } from '@/jarvis/cards/Card/Card';
@@ -10,14 +10,21 @@ import './Orbit.css';
 interface OrbitProps {
   cards: readonly SceneCard[];
   onOpen: (action: ConsoleAction) => void;
+  briefingLoading?: boolean;
 }
 
 const STAGGER_MS = 80;
 const RADIUS = 1;
 
-export const Orbit = ({ cards, onOpen }: OrbitProps) => {
+export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) => {
   const t = useT();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const proposalId = cards.find((entry) =>
+    entry.card.type === 'case-proposal' || entry.card.type === 'alternative-proposal'
+  )?.id;
+  useEffect(() => {
+    if (proposalId !== undefined) setExpanded(proposalId);
+  }, [proposalId]);
   const seats = orbitSeats(cards.length, RADIUS, STAGGER_MS);
 
   return (
@@ -52,7 +59,7 @@ export const Orbit = ({ cards, onOpen }: OrbitProps) => {
                 }
               }}
             >
-              <CardBody card={entry.card} onOpen={onOpen} />
+              <CardBody card={entry.card} onOpen={onOpen} briefingLoading={briefingLoading} />
             </Card>
           </div>
         );

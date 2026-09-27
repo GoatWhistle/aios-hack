@@ -23,7 +23,7 @@ from backend.contexts.optimization.infrastructure.ood_calibration import (
     OodThresholdDecision,
     resolve_ood_threshold,
 )
-from backend.shared.paths import project_root
+from backend.shared.paths import data_root, project_root
 
 
 RELEASE_FORMAT = "aios.surrogate-release.v1"
@@ -240,8 +240,9 @@ def resolve_runtime_artifacts(
     manifest_value = env.get("AIOS_SURROGATE_MANIFEST")
     bundle_value = env.get("AIOS_SURROGATE_BUNDLE")
     legacy_dir = env.get("AIOS_CHECKPOINT_DIR")
-    default_bundle = project_root() / "data" / "model-production"
-    default_manifest = project_root() / "data" / "surrogate-production.json"
+    default_data = data_root(env) if env.get("AIOS_DATA_ROOT") else project_root() / "data"
+    default_bundle = default_data / "model-production"
+    default_manifest = default_data / "surrogate-production.json"
     economic_model_version: str | None = None
     economic_target_provenance_hash: str | None = None
 
