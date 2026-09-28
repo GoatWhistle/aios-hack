@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import { QUESTION_LIMIT } from '@/jarvis/transport/JarvisTransport';
 import { MicButton } from '@/jarvis/voice/MicButton/MicButton';
@@ -13,7 +13,12 @@ interface InputDockProps {
   onCancel?: () => void;
   draft?: string;
   onDraftChange?: (text: string) => void;
+  lead?: ReactNode;
+  trail?: ReactNode;
 }
+
+const COUNTER_FROM = Math.round(QUESTION_LIMIT * 0.8);
+const GROW_LINES = 5;
 
 export const recallAt = (
   history: readonly string[],
@@ -26,7 +31,7 @@ export const recallAt = (
   return { text: history[history.length - 1 - next], cursor: next };
 };
 
-export const InputDock = ({ onAsk, focusSignal, history, sessionId, busy = false, onCancel, draft, onDraftChange }: InputDockProps) => {
+export const InputDock = ({ onAsk, focusSignal, history, sessionId, busy = false, onCancel, draft, onDraftChange, lead, trail }: InputDockProps) => {
   const t = useT();
   const [localText, setLocalText] = useState('');
   const text = draft ?? localText;
@@ -46,6 +51,17 @@ export const InputDock = ({ onAsk, focusSignal, history, sessionId, busy = false
       ref.current?.focus();
     }
   }, [focusSignal]);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (node === null) {
+      return;
+    }
+    node.style.height = 'auto';
+    const line = Number.parseFloat(getComputedStyle(node).lineHeight) || 20;
+    const cap = line * GROW_LINES;
+    node.style.height = `${Math.min(node.scrollHeight, cap)}px`;
+  }, [text]);
 
   const submit = () => {
     const trimmed = text.trim();
@@ -82,51 +98,68 @@ export const InputDock = ({ onAsk, focusSignal, history, sessionId, busy = false
     }
   };
 
+  const empty = text.trim().length === 0;
+
   return (
-    <form
-      className="jarvis-dock"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <textarea
-        ref={ref}
-        className="jarvis-dock-input"
-        rows={1}
-        aria-label={t('jarvis-screen.inputLabel')}
-        placeholder={t('jarvis-screen.inputPlaceholder')}
-        maxLength={QUESTION_LIMIT}
-        value={text}
-        onChange={(event) => {
-          setText(event.target.value.slice(0, QUESTION_LIMIT));
-          setCursor(-1);
+    <div className="jarvis-dock-row">
+      <form
+        className="jarvis-dock"
+        data-busy={busy ? 'true' : undefined}
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
         }}
-        onKeyDown={onKeyDown}
-      />
-      <span className="jarvis-dock-count" aria-hidden="true">
-        {t('jarvis-screen.limit', { count: text.length })}
-      </span>
-      <MicButton onTranscript={(value) => {
-        setText(value);
-        setCursor(-1);
-      }} onCommit={(value) => {
-        const question = value.trim().slice(0, QUESTION_LIMIT);
-        setCursor(-1);
-        if (busy) setText(question);
-        else if (question.length > 0) {
-          onAsk(question);
-          setText('');
-        }
-      }} />
-      {busy && onCancel ? (
-        <button type="button" className="jarvis-dock-cancel" onClick={onCancel}>
-          {t('jarvis-screen.walk.stop')}
+      >
+        {lead}
+        <textarea
+          ref={ref}
+          className="jarvis-dock-input"
+          rows={1}
+          aria-label={t('jarvis-screen.inputLabel')}
+          placeholder={t('jarvis-screen.inputPlaceholder')}
+          maxLength={QUESTION_LIMIT}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value.slice(0, QUESTION_LIMIT));
+            setCursor(-1);
+          }}
+          onKeyDown={onKeyDown}
+        />
+        {text.length >= COUNTER_FROM ? (
+          <span className="jarvis-dock-count" role="status" aria-live="polite">
+            {t('jarvis-screen.limit', { count: text.length })}
+          </span>
+        ) : null}
+        <MicButton
+          onTranscript={(value) => {
+            setText(value);
+            setCursor(-1);
+          }}
+          onCommit={(value) => {
+            const question = value.trim().slice(0, QUESTION_LIMIT);
+            setCursor(-1);
+            if (busy) setText(question);
+            else if (question.length > 0) {
+              onAsk(question);
+              setText('');
+            }
+          }}
+        />
+        {busy && onCancel ? (
+          <button type="button" className="jarvis-dock-cancel" onClick={onCancel}>
+            {t('jarvis-screen.walk.stop')}
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          className="jarvis-dock-send"
+          disabled={busy || empty}
+          title={empty ? t('jarvis-screen.sendHint') : undefined}
+        >
+          {t('jarvis-screen.send')}
         </button>
-      ) : null}
-      <button type="submit" className="jarvis-dock-send" disabled={busy || text.trim().length === 0}>
-        {t('jarvis-screen.send')}
-      </button>
-    </form>
+      </form>
+      {trail}
+    </div>
   );
 };

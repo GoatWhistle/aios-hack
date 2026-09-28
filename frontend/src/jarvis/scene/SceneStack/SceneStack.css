@@ -15,7 +15,7 @@
   transform: scale(calc(1.12 + var(--stack-depth) * 0.16));
   transition:
     transform var(--duration-state) var(--ease-emphasis),
-    opacity var(--duration-state) var(--ease-out);
+    opacity var(--duration-state) var(--ease-emphasis);
 }
 
 @media (prefers-reduced-motion: reduce) {

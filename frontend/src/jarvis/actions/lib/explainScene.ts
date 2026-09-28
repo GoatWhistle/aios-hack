@@ -1,5 +1,3 @@
-// Compatibility helpers retained for the existing frontend contract checks.
-// Product actions use the backend decision_journal path in useExplainAction.
 import type { TraceRecord } from '@/entities/trace/types';
 import type { JarvisAskContext, JarvisCard, JarvisEvent } from '@/jarvis/transport/events';
 

@@ -158,8 +158,11 @@ export const createSseTransport = ({ fetchImpl }: SseOptions = {}): JarvisTransp
   }
 });
 
+export type JarvisFailure = 'unreachable' | 'no-api-key';
+
 export interface JarvisCapabilities {
   ok: boolean;
+  failure: JarvisFailure | null;
   tts: boolean;
   stt: 'server' | 'browser' | 'none';
   docs: number;
@@ -168,6 +171,7 @@ export interface JarvisCapabilities {
 
 export const OFFLINE: JarvisCapabilities = {
   ok: false,
+  failure: 'unreachable',
   tts: false,
   stt: 'none',
   docs: 0,
@@ -182,6 +186,7 @@ export const readCapabilities = (ok: boolean, value: unknown): JarvisCapabilitie
   const stt = record.stt;
   return {
     ok,
+    failure: ok ? null : record.error === 'no-api-key' ? 'no-api-key' : 'unreachable',
     tts: record.tts === true,
     stt: stt === 'server' || stt === 'browser' ? stt : 'none',
     docs: typeof record.docs === 'number' && Number.isFinite(record.docs) ? record.docs : 0,

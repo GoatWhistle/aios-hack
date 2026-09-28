@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { readDuration } from '@/shared/lib/transition/readDuration';
 
-const CLOSE_MS = 180;
+const CLOSE_TOKEN = '--duration-state';
+const CLOSE_FALLBACK_MS = 160;
 
 export const useDeferredClose = <T>(
   active: T | null
@@ -27,7 +29,7 @@ export const useDeferredClose = <T>(
       setVisible(null);
       setClosing(false);
       timer.current = null;
-    }, CLOSE_MS);
+    }, readDuration(CLOSE_TOKEN, CLOSE_FALLBACK_MS));
     return () => {
       if (timer.current !== null) {
         clearTimeout(timer.current);

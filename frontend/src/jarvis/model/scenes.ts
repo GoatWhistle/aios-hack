@@ -56,7 +56,6 @@ export const emptyScenes: ScenesState = {
   seq: 0
 };
 
-/** A snapshot cannot resume a stream; retain its evidence and identify unfinished answers. */
 export const settleRestoredScenes = (state: ScenesState, liveSceneId: string | null = null): ScenesState => ({
   ...state,
   status: liveSceneId === null ? null : state.status,
@@ -219,7 +218,6 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
     if (target === null) {
       return { ...state, status: null, tool: null };
     }
-    // A refreshed briefing can be appended after the live user request.
     const latestRequest = [...state.scenes].reverse().find((scene) => scene.sourceId !== 'briefing')
       ?? state.scenes[state.scenes.length - 1];
     const settleProgress = event.scene_id === undefined || target === latestRequest;

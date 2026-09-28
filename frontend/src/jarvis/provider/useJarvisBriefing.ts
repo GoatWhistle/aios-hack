@@ -6,7 +6,7 @@ interface BriefingOptions {
   open: boolean;
   sessionId: string;
   sceneCount: number;
-  hasBriefing: boolean;
+  briefingStale: boolean;
   lang: string;
   scenario: string;
   step: number;
@@ -19,7 +19,7 @@ export const useJarvisBriefing = ({
   open,
   sessionId,
   sceneCount,
-  hasBriefing,
+  briefingStale,
   lang,
   scenario,
   step,
@@ -32,9 +32,7 @@ export const useJarvisBriefing = ({
   const requestSequence = useRef(0);
 
   useEffect(() => {
-    if (!open || (sceneCount > 0 && !hasBriefing)) {
-      // A question may start while initial session/briefing retrieval is pending.
-      // Its late result must never pushEvents and abort that live request.
+    if (!open || (sceneCount > 0 && !briefingStale)) {
       requestSequence.current += 1;
       if (pendingKey.current !== null && requestedKey.current === pendingKey.current) {
         requestedKey.current = null;
@@ -75,5 +73,5 @@ export const useJarvisBriefing = ({
         setLoading(false);
       }
     });
-  }, [open, sessionId, sceneCount, hasBriefing, lang, scenario, step, pushEvents, mergeEvents, setLoading]);
+  }, [open, sessionId, sceneCount, briefingStale, lang, scenario, step, pushEvents, mergeEvents, setLoading]);
 };

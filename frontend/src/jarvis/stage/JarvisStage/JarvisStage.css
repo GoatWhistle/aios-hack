@@ -2,7 +2,7 @@
   position: relative;
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
+  overflow: clip;
   background: var(--color-bg);
   perspective: var(--perspective-stage);
   perspective-origin: 50% 50%;
@@ -140,5 +140,14 @@
 
   .jarvis-stage[data-phase='open'] .jarvis-face-console {
     opacity: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .jarvis-stage {
+    --size-sphere-perched: 56px;
+    --size-sphere-box: 68px;
+    --size-sphere-gutter: calc(var(--size-sphere-box) + var(--space-2));
+    --scale-sphere-resting: 1.9;
   }
 }

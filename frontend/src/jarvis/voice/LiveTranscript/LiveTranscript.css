@@ -12,6 +12,20 @@
   font-size: var(--font-size-sm);
   text-align: center;
   pointer-events: none;
+  animation: jarvis-transcript-in var(--duration-state) var(--ease-emphasis) both;
+}
+
+@keyframes jarvis-transcript-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, calc(-1 * var(--rise-sm)), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-transcript {
+    animation: none;
+  }
 }
 
 .jarvis-transcript-text {

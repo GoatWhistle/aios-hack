@@ -2,87 +2,31 @@ import { useState } from 'react';
 import { DASH, formatNumber, formatQuantity } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { readCompare } from '@/jarvis/cards/payloads';
-import type { CompareConstraints, CompareStatus } from '@/jarvis/cards/payloads/payloadTypes';
 import { runStatusLabel } from '@/jarvis/cards/lib/runStatusLabel';
 import { translationOrRaw } from '@/jarvis/cards/lib/translationFallback';
 import { opmStatusLabel } from '@/jarvis/cards/lib/opmStatusLabel';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import { Markdown } from '@/jarvis/markdown/Markdown/Markdown';
+import {
+  comparabilityNote,
+  constraintCount,
+  constraintGroupLabel,
+  economicLineLabel,
+  flagKeys,
+  missingWellBreakdownLabel,
+  reasonLabel
+} from '@/jarvis/cards/CompareCard/compareLabels';
+import { copyText, downloadMarkdown } from '@/jarvis/cards/CompareCard/compareExport';
 import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import './CompareCard.css';
 
-const flagKeys = (status: CompareStatus): { key: string; on: boolean }[] => {
-  const collected: { key: string; on: boolean }[] = [];
-  if (status.sound !== null) {
-    collected.push({ key: 'jarvis-cards.compareSound', on: status.sound });
-  }
-  if (status.converged !== null) {
-    collected.push({ key: 'jarvis-cards.compareConverged', on: status.converged });
-  }
-  if (status.self_consistent !== null) {
-    collected.push({ key: 'jarvis-cards.compareConsistent', on: status.self_consistent });
-  }
-  if (status.has_submission !== null) {
-    collected.push({ key: 'jarvis-cards.compareSubmitted', on: status.has_submission });
-  }
-  return collected;
-};
+interface CompareCardProps {
+  payload: unknown;
+  action?: ConsoleAction;
+  onOpen?: (action: ConsoleAction) => void;
+}
 
-const constraintCount = (constraints: CompareConstraints): string =>
-  constraints.total === null ? DASH : String(constraints.total);
-
-const constraintGroupLabel = (key: string, t: ReturnType<typeof useI18n>['t']): string => {
-  const translationKey = `jarvis-cards.compareConstraintGroup.${key}`;
-  const translated = t(translationKey);
-  return translated === translationKey ? key : translated;
-};
-
-const economicLineLabel = (key: string, t: ReturnType<typeof useI18n>['t']): string => {
-  const translationKey = `jarvis-cards.economicLine.${key}`;
-  const translated = t(translationKey);
-  return translated === translationKey ? key : translated;
-};
-
-const reasonLabel = (
-  reason: string,
-  category: 'economic' | 'production',
-  t: ReturnType<typeof useI18n>['t']
-): string => {
-  const known: Record<string, string> = category === 'economic' ? {
-    'one or both runs have no recorded economics/npv-table.json': 'missingTable',
-    'the recorded NPV table has no annual line items': 'noAnnualLines'
-  } : {
-    'one or both runs have no observation/<schedule_hash>/response.json': 'missingResponse',
-    'an observation response has no interval_response rows': 'missingIntervalRows',
-    'the OPM responses share no well/control_step rows': 'noSharedWellStep'
-  };
-  const key = known[reason];
-  return key === undefined ? reason : translationOrRaw(`jarvis-cards.compareReason.${category}.${key}`, reason, t);
-};
-
-const missingWellBreakdownLabel = (reason: string, t: ReturnType<typeof useI18n>['t']): string => {
-  const match = /^no-comparison: run (.+) has no comparison\.json file, so the breakdown of the difference by well is unknown$/.exec(reason);
-  return match === null ? reason : t('jarvis-cards.compareReason.missingWellBreakdown', { run: match[1] });
-};
-
-const comparabilityNote = (
-  comparability: NonNullable<ReturnType<typeof readCompare>>['comparability'],
-  t: ReturnType<typeof useI18n>['t']
-): string => {
-  if (comparability === null || comparability.missing_fields === null || comparability.mismatched_fields === null) {
-    return comparability?.note ?? '';
-  }
-  const fields = (items: string[]) => items.map((field) => translationOrRaw(`jarvis-cards.compareField.${field}`, field, t)).join(', ');
-  if (comparability.mismatched_fields.length > 0) {
-    return t('jarvis-cards.compareMismatchNote', { fields: fields(comparability.mismatched_fields) });
-  }
-  if (comparability.missing_fields.length > 0) {
-    return t('jarvis-cards.compareMissingNote', { fields: fields(comparability.missing_fields) });
-  }
-  return t('jarvis-cards.compareMatchedNote');
-};
-
-export const CompareCard = ({ payload, action, onOpen }: { payload: unknown; action?: ConsoleAction; onOpen?: (action: ConsoleAction) => void }) => {
+export const CompareCard = ({ payload, action, onOpen }: CompareCardProps) => {
   const { lang, t } = useI18n();
   const [copied, setCopied] = useState(false);
   const compare = readCompare(payload);
@@ -90,26 +34,7 @@ export const CompareCard = ({ payload, action, onOpen }: { payload: unknown; act
     return <EmptyPayload />;
   }
   const delta = compare.delta_npv;
-  const copyConclusion = async () => {
-    if (compare.conclusion_markdown === null) return;
-    try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(compare.conclusion_markdown);
-      else {
-        const field = document.createElement('textarea');
-        field.value = compare.conclusion_markdown;
-        field.style.position = 'fixed';
-        field.style.opacity = '0';
-        document.body.appendChild(field);
-        field.select();
-        const success = document.execCommand('copy');
-        field.remove();
-        if (!success) throw new Error('clipboard unavailable');
-      }
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
+  const conclusion = compare.conclusion_markdown;
 
   return (
     <div className="jarvis-compare">
@@ -239,22 +164,21 @@ export const CompareCard = ({ payload, action, onOpen }: { payload: unknown; act
           </ol>
         </div>
       )}
-      {compare.conclusion_markdown === null ? null : (
+      {conclusion === null ? null : (
         <details className="jarvis-compare-conclusion">
           <summary>{t('jarvis-cards.compareConclusion')}</summary>
           <div className="jarvis-compare-conclusion-actions">
-            <button type="button" onClick={() => { void copyConclusion(); }}>{copied ? t('jarvis-cards.copied') : t('jarvis-cards.copy')}</button>
-            <button type="button" onClick={() => {
-              const blob = new Blob([compare.conclusion_markdown ?? ''], { type: 'text/markdown;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `comparison-${compare.a.id}-vs-${compare.b.id}.md`;
-              link.click();
-              URL.revokeObjectURL(url);
-            }}>{t('jarvis-cards.downloadMarkdown')}</button>
+            <button type="button" onClick={() => { void copyText(conclusion).then(setCopied); }}>
+              {copied ? t('jarvis-cards.copied') : t('jarvis-cards.copy')}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadMarkdown(conclusion, `comparison-${compare.a.id}-vs-${compare.b.id}.md`)}
+            >
+              {t('jarvis-cards.downloadMarkdown')}
+            </button>
           </div>
-          <Markdown source={compare.conclusion_markdown} />
+          <Markdown source={conclusion} />
         </details>
       )}
     </div>

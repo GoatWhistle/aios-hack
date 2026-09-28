@@ -4,21 +4,24 @@ import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { useJarvisSessionContext, useJarvisSphere, useJarvisVoice } from '@/jarvis/provider/contexts';
 import { AnswerPanel } from '@/jarvis/scene/AnswerPanel/AnswerPanel';
 import { Caption } from '@/jarvis/scene/Caption/Caption';
+import { EmptyInvite } from '@/jarvis/screen/JarvisScreen/EmptyInvite';
 import { ContextRibbon } from '@/jarvis/scene/ContextRibbon/ContextRibbon';
 import { HistoryRail } from '@/jarvis/scene/HistoryRail/HistoryRail';
-import { JarvisDoor } from '@/jarvis/stage/JarvisDoor/JarvisDoor';
+import { HistorySessions } from '@/jarvis/scene/HistorySessions/HistorySessions';
 import { InputDock } from '@/jarvis/scene/InputDock/InputDock';
 import { LiveTranscript } from '@/jarvis/voice/LiveTranscript/LiveTranscript';
+import { OfflineNotice } from '@/jarvis/scene/OfflineNotice/OfflineNotice';
 import { Orbit } from '@/jarvis/scene/Orbit/Orbit';
 import { SceneStack } from '@/jarvis/scene/SceneStack/SceneStack';
 import { SceneStatus } from '@/jarvis/scene/SceneStatus/SceneStatus';
-import { Suggestions } from '@/jarvis/scene/Suggestions/Suggestions';
 import { WalkthroughControls } from '@/jarvis/scene/WalkthroughControls/WalkthroughControls';
 import { STAGE_SLOT_ID } from '@/jarvis/scene/lib/stageSlot';
 import { activeScene } from '@/jarvis/model/scenes';
 import { useFocusTrap } from '@/jarvis/provider/useFocusTrap';
+import { useSpherePose } from '@/jarvis/stage/SphereFlight/useSpherePose';
 import { useVoiceOutput } from '@/jarvis/voice/useVoiceOutput';
 import { isEditableTarget } from '@/shared/lib/keyboard/target';
+import { useInviteOffset } from '@/jarvis/screen/JarvisScreen/useInviteOffset';
 import './JarvisScreen.css';
 
 export const JarvisScreen = () => {
@@ -49,10 +52,13 @@ export const JarvisScreen = () => {
   const { setAudioLevel } = useJarvisSphere();
   const ref = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const sayRef = useRef<HTMLDivElement>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const open = transition.phase === 'open';
   const scene = activeScene(scenes);
+  const pose = useSpherePose();
   const sceneId = scene?.id ?? null;
+  useInviteOffset(ref, sayRef, open && scene === null && pose === 'resting');
   useLayoutEffect(() => {
     if (bodyRef.current !== null) bodyRef.current.scrollTop = 0;
   }, [sceneId]);
@@ -113,7 +119,6 @@ export const JarvisScreen = () => {
       aria-modal="true"
       aria-label={t('jarvis-screen.dialogLabel')}
     >
-      <JarvisDoor />
       <ContextRibbon
         speaking={voice.speaking}
         onStop={voice.stop}
@@ -122,18 +127,25 @@ export const JarvisScreen = () => {
         onRestorePrevious={() => applyAction({ restore_previous: true })}
       />
       <div className="jarvis-screen-body" ref={bodyRef}>
-        <div className="jarvis-screen-identity" aria-hidden="true">
+        <div className="jarvis-screen-identity" data-pose={pose}>
           <span className="jarvis-screen-slot" id={STAGE_SLOT_ID} aria-hidden="true" />
           <SceneStack scenes={scenes.scenes} activeIndex={scenes.activeIndex} />
+          {pose === 'perched' ? (
+            <button
+              type="button"
+              className="jarvis-screen-exit"
+              aria-label={t('jarvis-stage.closeLabel')}
+              aria-keyshortcuts="Escape"
+              onClick={close}
+            />
+          ) : null}
         </div>
         <div className="jarvis-screen-workspace">
-        <div className="jarvis-screen-say">
+        <div className="jarvis-screen-say" ref={sayRef}>
           {scene?.question ? <h2 className="jarvis-screen-question">{scene.question}</h2> : null}
+          <OfflineNotice pose={pose} />
           {scene === null ? (
-            <div className="jarvis-screen-empty">
-              <p className="jarvis-screen-empty-title">{t('jarvis-screen.emptyTitle')}</p>
-              <p className="jarvis-screen-empty-body">{t('jarvis-screen.emptyBody')}</p>
-            </div>
+            capabilities.ok ? <EmptyInvite onPick={askQuestion} /> : null
           ) : (
             <Caption scene={scene} />
           )}
@@ -154,18 +166,31 @@ export const JarvisScreen = () => {
           scenes={scenes.scenes}
           activeIndex={scenes.activeIndex}
           onSelect={selectScene}
+          suggestions={scenes.status === null ? scenes.suggestions : []}
+          onPickSuggestion={askQuestion}
         />
-        {scenes.status === null ? <Suggestions items={scenes.suggestions} onPick={askQuestion} /> : null}
-        <WalkthroughControls
-          scenes={scenes}
-          context={askContext}
+        <InputDock
+          onAsk={askQuestion}
+          focusSignal={focusSignal}
+          history={history}
+          sessionId={sessionId}
           busy={scenes.status !== null}
-          askQuestion={askQuestion}
-          selectScene={selectScene}
-          applyAction={applyAction}
-          cancel={cancel}
+          onCancel={cancel}
+          draft={questionDraft}
+          onDraftChange={setQuestionDraft}
+          trail={<HistorySessions />}
+          lead={
+            <WalkthroughControls
+              scenes={scenes}
+              context={askContext}
+              busy={scenes.status !== null}
+              askQuestion={askQuestion}
+              selectScene={selectScene}
+              applyAction={applyAction}
+              cancel={cancel}
+            />
+          }
         />
-        <InputDock onAsk={askQuestion} focusSignal={focusSignal} history={history} sessionId={sessionId} busy={scenes.status !== null} onCancel={cancel} draft={questionDraft} onDraftChange={setQuestionDraft} />
       </footer>
     </div>
   );

@@ -83,7 +83,6 @@ export const useConsoleActions = (
 
   const applyAction = useCallback(
     (action: ConsoleAction) => {
-      // An earlier effect must not settle or replay a superseded navigation.
       setPending(null);
       if (action.restore_previous) {
         const previous = focusHistory.current.pop();

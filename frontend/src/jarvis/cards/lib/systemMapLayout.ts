@@ -4,10 +4,12 @@ export interface MapPlace {
   id: string;
   x: number;
   y: number;
+  span: number;
 }
 
 export const VIEW_W = 100;
 export const VIEW_H = 62;
+export const LABEL_FONT = 2.6;
 
 const KIND_ROW: Record<string, number> = {
   ui: 0,
@@ -36,15 +38,29 @@ export const placeNodes = (nodes: readonly SystemNode[]): MapPlace[] => {
   used.forEach((row, rowIndex) => {
     const bucket = rows.get(row) ?? [];
     const y = ((rowIndex + 1) / (used.length + 1)) * VIEW_H;
+    const span = VIEW_W / (bucket.length + 1);
     bucket.forEach((node, column) => {
       places.push({
         id: node.id,
         x: ((column + 1) / (bucket.length + 1)) * VIEW_W,
-        y
+        y,
+        span
       });
     });
   });
   return places;
+};
+
+const GLYPH_ASPECT = 0.55;
+const LABEL_GUTTER = 0.9;
+const ELLIPSIS = '…';
+
+export const fitLabel = (label: string, span: number, fontSize: number): string => {
+  const budget = Math.floor((span * LABEL_GUTTER) / (fontSize * GLYPH_ASPECT));
+  if (budget <= 1 || label.length <= budget) {
+    return label;
+  }
+  return `${label.slice(0, budget - 1).trimEnd()}${ELLIPSIS}`;
 };
 
 export const edgeLine = (

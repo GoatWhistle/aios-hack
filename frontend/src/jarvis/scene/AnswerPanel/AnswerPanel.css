@@ -4,24 +4,26 @@
   align-items: stretch;
   gap: var(--space-2);
   width: 100%;
-  max-width: var(--size-jarvis-answer-max);
-  margin: 0 auto;
 }
 
 .jarvis-answer-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  align-self: flex-start;
   min-height: var(--size-hit-min);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-4);
   border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text-muted);
   font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .jarvis-answer-toggle:hover {
@@ -36,7 +38,7 @@
 
 .jarvis-answer-toggle svg {
   flex: none;
-  transition: transform var(--duration-state) var(--ease-out);
+  transition: transform var(--duration-state) var(--ease-emphasis);
 }
 
 .jarvis-answer[data-expanded='true'] .jarvis-answer-toggle svg {
@@ -62,22 +64,27 @@
 }
 
 .jarvis-answer-body {
-  max-height: var(--size-jarvis-answer-max-h);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-3);
+  padding: var(--space-5);
   border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-loose);
+  transform-origin: 50% 0;
+  transition:
+    opacity var(--duration-state) var(--ease-emphasis),
+    transform var(--duration-state) var(--ease-emphasis);
+}
+
+.jarvis-answer-body[data-open='false'] {
+  opacity: 0;
+  transform: translate3d(0, calc(-1 * var(--rise-md)), 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .jarvis-answer-toggle svg {
+  .jarvis-answer-toggle svg,
+  .jarvis-answer-toggle,
+  .jarvis-answer-body {
     transition: none;
   }
 }
-
-/* The complete answer is part of the workspace and uses its single scroll area. */
-.jarvis-answer { max-width: none; }
-.jarvis-answer-toggle { border-radius: var(--radius-md); font-size: var(--font-size-sm); }
-.jarvis-answer-body { max-height: none; overflow: visible; line-height: 1.65; }

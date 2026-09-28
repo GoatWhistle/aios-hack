@@ -254,6 +254,7 @@
   "provenanceKind.recorded": "Записанный артефакт",
   "provenanceKind.replay": "Повтор политики",
   "provenanceKind.unmeasured": "Не измерено",
+  "provenanceKind.unavailable": "Источник недоступен",
   "provenanceKind.unknown": "Источник не указан",
   "ruleDecision": "Решение",
   "ruleImpact": "Вклад в ЧДД",

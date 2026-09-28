@@ -155,7 +155,6 @@ export const useSphereRenderer = (
       setColor(gl, uniforms.u_deep, palette['--color-jarvis-deep']);
       setColor(gl, uniforms.u_rim, palette['--color-jarvis-rim']);
       setColor(gl, uniforms.u_spark, palette['--color-jarvis-spark']);
-      setColor(gl, uniforms.u_shadow, palette['--color-jarvis-shadow']);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.bindVertexArray(null);
     };

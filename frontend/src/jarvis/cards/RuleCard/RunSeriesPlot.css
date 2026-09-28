@@ -53,7 +53,7 @@
   display: inline-block;
   width: 0.75rem;
   margin-inline-end: var(--space-1);
-  border-top: 2px solid var(--color-jarvis-body);
+  border-top: var(--border-thick) solid var(--color-jarvis-body);
   vertical-align: middle;
   content: '';
 }

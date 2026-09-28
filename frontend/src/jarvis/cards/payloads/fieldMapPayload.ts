@@ -13,9 +13,14 @@ export const readFieldMap = (payload: unknown): FieldMapPayload | null => {
       producer: edge.producer as string,
       weight: edge.weight as number
     }));
+  const focus = list(payload.focus).filter(isStr);
+  const highlight = list(payload.highlight).filter(isStr);
+  if (focus.length === 0 && highlight.length === 0 && edges.length === 0) {
+    return null;
+  }
   return {
-    focus: list(payload.focus).filter(isStr),
-    highlight: list(payload.highlight).filter(isStr),
+    focus,
+    highlight,
     edges,
     layer: strOrNull(payload.layer)
   };

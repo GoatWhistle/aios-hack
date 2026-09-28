@@ -49,7 +49,7 @@
 
 .jarvis-events-mark[data-type='ROLE_CHANGE'],
 .jarvis-events-swatch[data-type='ROLE_CHANGE'] {
-  background: var(--color-jarvis-body);
+  background: var(--color-accent);
 }
 
 .jarvis-events-mark[data-type='SHUT'],

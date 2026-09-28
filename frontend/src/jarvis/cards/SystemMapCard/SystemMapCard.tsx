@@ -4,13 +4,27 @@ import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAct
 import { readSystemMap } from '@/jarvis/cards/payloads';
 import { systemMapKindLabel } from '@/jarvis/cards/lib/systemMapKindLabel';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
-import { VIEW_H, VIEW_W, edgeLine, placeNodes } from '@/jarvis/cards/lib/systemMapLayout';
+import {
+  LABEL_FONT,
+  VIEW_H,
+  VIEW_W,
+  edgeLine,
+  fitLabel,
+  placeNodes
+} from '@/jarvis/cards/lib/systemMapLayout';
 import './SystemMapCard.css';
 
 interface SystemMapCardProps {
   payload: unknown;
   onOpen: (action: ConsoleAction) => void;
 }
+
+const STEP_BY_KEY: Record<string, number> = {
+  ArrowRight: 1,
+  ArrowDown: 1,
+  ArrowLeft: -1,
+  ArrowUp: -1
+};
 
 const routeOf = (route: string | null): ConsoleAction | null => {
   if (route === null) {
@@ -31,6 +45,7 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
   const places = placeNodes(map.nodes);
   const selected = picked ?? map.focus;
   const node = map.nodes.find((entry) => entry.id === selected) ?? null;
+  const tabStop = node === null ? places[0]?.id : selected;
   const action = node === null ? null : routeOf(node.route);
 
   return (
@@ -38,6 +53,7 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
       <svg
         className="jarvis-map-svg"
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+        fontSize={LABEL_FONT}
         role="group"
         aria-label={t('jarvis-cards.mapLabel')}
       >
@@ -59,7 +75,7 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
             />
           );
         })}
-        {places.map((place) => {
+        {places.map((place, index) => {
           const entry = map.nodes.find((item) => item.id === place.id);
           if (entry === undefined) {
             return null;
@@ -72,7 +88,7 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
               data-kind={entry.kind}
               data-on={on ? 'true' : undefined}
               transform={`translate(${place.x} ${place.y})`}
-              tabIndex={0}
+              tabIndex={entry.id === tabStop ? 0 : -1}
               role="button"
               aria-label={entry.label}
               aria-pressed={on}
@@ -81,12 +97,25 @@ export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   setPicked(entry.id);
+                  return;
                 }
+                const step = STEP_BY_KEY[event.key];
+                if (step === undefined) {
+                  return;
+                }
+                event.preventDefault();
+                const next = places[(index + step + places.length) % places.length];
+                setPicked(next.id);
+                event.currentTarget.parentElement
+                  ?.querySelector<SVGGElement>(`[data-node-id="${next.id}"]`)
+                  ?.focus();
               }}
+              data-node-id={entry.id}
             >
+              <title>{entry.label}</title>
               <circle className="jarvis-map-dot" r={on ? 3.4 : 2.2} />
               <text className="jarvis-map-text" y={-4.4}>
-                {entry.label}
+                {on ? entry.label : fitLabel(entry.label, place.span, LABEL_FONT)}
               </text>
             </g>
           );

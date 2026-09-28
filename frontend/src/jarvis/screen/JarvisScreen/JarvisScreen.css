@@ -5,7 +5,7 @@
   gap: var(--space-3);
   width: 100%;
   height: 100%;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-4) var(--size-jarvis-gutter);
   background: var(--color-jarvis-face);
   color: var(--color-text);
   overflow: hidden;
@@ -13,23 +13,58 @@
 
 .jarvis-screen-body {
   position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
 }
 
 .jarvis-screen-identity {
-  --size-sphere-stage: 84px;
-  position: absolute;
-  top: var(--space-2);
+  --size-sphere-stage: var(--size-sphere-perched);
+  --size-sphere-self: var(--size-sphere-box);
+  position: fixed;
+  top: var(--space-4);
   left: var(--space-2);
+  z-index: var(--z-sticky);
   display: grid;
   place-items: center;
-  width: 104px;
-  height: 104px;
+  width: var(--size-sphere-self);
+  height: var(--size-sphere-self);
   pointer-events: none;
+}
+
+.jarvis-screen-identity[data-pose='resting'] {
+  --size-sphere-stage: var(--size-sphere-resting);
+  --size-sphere-self: var(--size-sphere-resting);
+}
+
+.jarvis-screen-exit {
+  grid-area: 1 / 1;
+  z-index: var(--z-popover);
+  width: var(--size-sphere-perched);
+  height: var(--size-sphere-perched);
+  padding: 0;
+  border: var(--border-thick) solid transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.jarvis-screen-exit:hover {
+  border-color: var(--color-jarvis-ink);
+  background: var(--color-jarvis-halo);
+}
+
+.jarvis-screen-exit:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .jarvis-screen-slot {
@@ -45,67 +80,163 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  flex: 1 0 auto;
+  justify-content: safe center;
   width: 100%;
-  max-width: 1360px;
+  max-width: var(--size-jarvis-column);
   margin: 0 auto;
-  padding: var(--space-3) var(--space-2) var(--space-4);
+  padding: var(--space-3) 0 var(--space-4);
+  font-size: var(--font-size-md);
+}
+
+.jarvis-screen-say,
+.jarvis-screen-workspace .jarvis-answer {
+  width: 100%;
+  max-width: var(--size-jarvis-prose);
+  margin-inline: auto;
 }
 
 .jarvis-screen-say {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-3);
-  padding-left: 120px;
-  min-height: 112px;
 }
 
 .jarvis-screen-say .jarvis-caption {
   align-items: flex-start;
-  text-align: left;
   max-width: none;
+  text-align: left;
 }
 
 .jarvis-screen-question {
   margin: 0;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-medium);
-  line-height: 1.3;
+  line-height: var(--line-height-snug);
   overflow-wrap: anywhere;
 }
 
 .jarvis-screen-empty {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-5);
+  text-align: center;
+  animation: jarvis-screen-invite var(--duration-drawer) var(--ease-out) both;
+  animation-delay: var(--duration-state);
+}
+
+.jarvis-screen-workspace:has(.jarvis-screen-empty),
+.jarvis-screen-workspace:has(.jarvis-offline[data-pose='resting']) {
+  justify-content: flex-start;
+}
+
+.jarvis-screen-say:has(.jarvis-screen-empty),
+.jarvis-screen-say:has(.jarvis-offline[data-pose='resting']) {
+  padding-top: max(0px, calc(var(--size-jarvis-sphere-clear) - var(--jarvis-invite-offset, 0px)));
 }
 
 .jarvis-screen-empty-title {
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-snug);
 }
 
 .jarvis-screen-empty-body {
   margin: 0;
-  max-width: var(--size-prose-max);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--color-text-muted);
+}
+
+.jarvis-screen-examples {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-screen-example {
+  display: block;
+  width: 100%;
+  min-height: var(--size-tap-min);
+  padding: var(--space-panel-y) var(--space-5);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.jarvis-screen-example:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-row-hover);
+}
+
+.jarvis-screen-example:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@keyframes jarvis-screen-invite {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-lg), 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-screen-example,
+  .jarvis-screen-exit {
+    transition: none;
+  }
+
+  .jarvis-screen-empty {
+    animation: none;
+  }
 }
 
 .jarvis-screen-foot {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: stretch;
+  gap: var(--size-jarvis-foot-row-gap);
   flex: none;
   width: 100%;
-  padding-bottom: var(--size-jarvis-door-row);
+  max-width: var(--size-jarvis-column);
+  margin: 0 auto calc(-1 * var(--space-4));
+  padding: var(--space-4) 0 var(--space-3);
   border-top: var(--border-hairline) solid var(--color-border);
-  padding-top: var(--space-2);
 }
 
 @media (max-width: 700px) {
-  .jarvis-screen { padding: var(--space-3); }
-  .jarvis-screen-identity { --size-sphere-stage: 56px; width: 68px; height: 68px; }
-  .jarvis-screen-say { padding-left: 84px; min-height: 80px; }
+  .jarvis-screen {
+    padding: var(--space-3) var(--space-3);
+  }
+
+  .jarvis-screen-identity {
+    top: var(--space-3);
+    left: var(--space-1);
+  }
+
+  .jarvis-screen-foot {
+    gap: var(--space-4);
+    margin-bottom: calc(-1 * var(--space-3));
+  }
 }

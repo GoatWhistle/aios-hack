@@ -1,37 +1,48 @@
+.jarvis-dock-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+}
+
 .jarvis-dock {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-3);
-  width: min(var(--size-jarvis-input-max), 100%);
-  padding: var(--space-3);
+  flex: 3 1 var(--size-jarvis-dock-max);
+  min-width: 0;
+  min-height: var(--size-jarvis-dock-row);
+  padding: var(--space-2) var(--space-3);
   border: var(--border-hairline) solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
 .jarvis-dock-input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: var(--size-control-height);
-  max-height: calc(var(--size-control-height) * 4);
-  padding: var(--space-2) var(--space-3);
+  height: var(--size-jarvis-dock-line);
+  padding: 0;
   border: none;
-  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text);
   font-family: inherit;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-sm);
+  line-height: var(--size-jarvis-dock-line);
   resize: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .jarvis-dock-input:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
 }
 
 .jarvis-dock-input::placeholder {
-  color: var(--color-text-disabled);
+  color: var(--color-text-subtle);
 }
 
 .jarvis-dock-count {
@@ -39,27 +50,33 @@
   align-self: center;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-mono);
-  color: var(--color-text-faint);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
 }
 
 .jarvis-dock-send {
   flex: none;
-  min-height: var(--size-icon-button);
+  min-height: var(--size-control-height);
   padding: 0 var(--space-5);
-  border: none;
+  border: var(--border-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--color-jarvis-body);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-family: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .jarvis-dock-send:disabled {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-disabled);
-  cursor: default;
+  background: none;
+  border-color: var(--color-border);
+  color: var(--color-text-subtle);
+  cursor: not-allowed;
 }
 
 .jarvis-dock-send:focus-visible {
@@ -67,24 +84,47 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-.jarvis-dock { width: min(1120px, 100%); align-items: center; }
-.jarvis-dock-input { min-height: 48px; }
 .jarvis-dock-cancel {
   flex: none;
-  min-height: var(--size-hit-min);
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--size-control-height);
+  padding: 0 var(--space-3);
   border: var(--border-hairline) solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  background: transparent;
+  background: none;
   color: var(--color-text);
   font: inherit;
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
-.jarvis-dock-cancel:focus-visible { outline: var(--focus-ring-width) solid var(--color-focus); }
+
+.jarvis-dock-cancel:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-dock-send {
+    transition: none;
+  }
+}
+
 @media (max-width: 700px) {
-  .jarvis-dock { flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2); }
-  .jarvis-dock-input { flex-basis: 100%; }
-  .jarvis-dock-count { margin-right: auto; }
-  .jarvis-dock-send { padding: 0 var(--space-3); }
+  .jarvis-dock-row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .jarvis-dock {
+    flex-basis: 100%;
+    max-width: none;
+    gap: var(--space-2);
+  }
+
+  .jarvis-dock-row .jarvis-sessions {
+    margin-left: auto;
+  }
+
+  .jarvis-dock-send {
+    padding: 0 var(--space-3);
+  }
 }

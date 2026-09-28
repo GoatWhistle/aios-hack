@@ -108,30 +108,31 @@ export const WalkthroughControls = ({ scenes, context, busy, askQuestion, select
   };
 
   return (
-    <section className="jarvis-walk" aria-label={t('jarvis-screen.walk.label')}>
+    <div className="jarvis-walk" aria-label={t('jarvis-screen.walk.label')} role="group">
       {walkthrough === null ? (
-        <div className="jarvis-walk-start">
-          <button type="button" onClick={start} disabled={busy || context.selected_well === null}>
-            {t('jarvis-screen.walk.start')}
-          </button>
-          {context.selected_well === null ? <span>{t('jarvis-screen.walk.selectWell')}</span> : null}
-        </div>
+        <button
+          type="button"
+          className="jarvis-walk-button"
+          onClick={start}
+          disabled={busy || context.selected_well === null}
+          title={context.selected_well === null ? t('jarvis-screen.walk.selectWell') : undefined}
+        >
+          {t('jarvis-screen.walk.start')}
+        </button>
       ) : (
         <>
-          <p className="jarvis-walk-progress">
+          <span className="jarvis-walk-progress">
             {t('jarvis-screen.walk.progress', { current: walkthrough.stage + 1, total: STAGES.length, well: walkthrough.well })}
             {stage === null ? '' : ` · ${t(`jarvis-screen.walk.stage.${stage}`)}`}
-          </p>
+          </span>
           {interrupted ? (
-            <button type="button" onClick={resume} disabled={busy}>{t('jarvis-screen.walk.resume')}</button>
+            <button type="button" className="jarvis-walk-button" onClick={resume} disabled={busy}>{t('jarvis-screen.walk.resume')}</button>
           ) : null}
-          <div className="jarvis-walk-buttons">
-            <button type="button" onClick={back} disabled={busy || interrupted || walkthrough.stage === 0}>{t('jarvis-screen.walk.back')}</button>
-            <button type="button" onClick={next} disabled={busy || interrupted || walkthrough.stage >= STAGES.length - 1}>{t('jarvis-screen.walk.next')}</button>
-            <button type="button" onClick={stop}>{t('jarvis-screen.walk.stop')}</button>
-          </div>
+          <button type="button" className="jarvis-walk-button" onClick={back} disabled={busy || interrupted || walkthrough.stage === 0}>{t('jarvis-screen.walk.back')}</button>
+          <button type="button" className="jarvis-walk-button" onClick={next} disabled={busy || interrupted || walkthrough.stage >= STAGES.length - 1}>{t('jarvis-screen.walk.next')}</button>
+          <button type="button" className="jarvis-walk-button" onClick={stop}>{t('jarvis-screen.walk.stop')}</button>
         </>
       )}
-    </section>
+    </div>
   );
 };

@@ -14,6 +14,7 @@ import {
   newSessionId,
   storedSessionId
 } from '@/jarvis/model/sessions';
+import { useSessionRestore } from '@/jarvis/provider/useSessionRestore';
 import { QUESTION_LIMIT, type JarvisTransport } from '@/jarvis/transport/JarvisTransport';
 import type { JarvisAskContext, JarvisEvent } from '@/jarvis/transport/events';
 
@@ -30,6 +31,7 @@ export interface JarvisSession {
   cancel: () => void;
   selectScene: (index: number) => void;
   busy: boolean;
+  restored: boolean;
 }
 
 export const useJarvisSession = (
@@ -52,6 +54,10 @@ export const useJarvisSession = (
   }, [sessionId]);
   const current = useRef(sessionId);
   current.current = sessionId;
+  const applyRestored = useCallback((events: readonly JarvisEvent[]) => {
+    setScenes((state) => (state.scenes.length > 0 ? state : replayEvents(events)));
+  }, []);
+  const restored = useSessionRestore(current, sessionGeneration, applyRestored);
 
   const settleCancelledScene = useCallback((sourceId: string | null) => {
     setScenes((state) => {
@@ -247,7 +253,8 @@ export const useJarvisSession = (
       startSession,
       cancel,
       selectScene,
-      busy
+      busy,
+      restored
     }),
     [
       scenes,
@@ -261,7 +268,8 @@ export const useJarvisSession = (
       startSession,
       cancel,
       selectScene,
-      busy
+      busy,
+      restored
     ]
   );
 };

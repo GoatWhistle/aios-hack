@@ -6,6 +6,7 @@ import { useScenario } from '@/entities/scenarios/model/ScenarioContext';
 import { useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { useConsoleActions } from '@/jarvis/actions/lib/useConsoleActions';
 import type { JarvisSessionValue } from '@/jarvis/model/jarvisValue';
+import { BRIEFING_SCENE_ID } from '@/jarvis/model/sessions';
 import {
   CLOSED,
   isMoving,
@@ -81,10 +82,14 @@ export const useSessionValue = (transport?: JarvisTransport): JarvisSessionValue
   useJarvisHotkey(transition.phase === 'closed', open);
   useTransitionEffects({ transition, settle, playing, togglePlay, cancel });
   useJarvisBriefing({
-    open: transition.phase === 'open',
+    open: transition.phase === 'open' && session.restored,
     sessionId,
     sceneCount,
-    hasBriefing: session.scenes.scenes.some((item) => item.sourceId === 'briefing'),
+    briefingStale: session.scenes.scenes.some(
+      (item) =>
+        item.sourceId === BRIEFING_SCENE_ID &&
+        (item.context.scenario !== askContext.scenario || item.context.step !== askContext.step)
+    ),
     mergeEvents,
     setLoading: setBriefingLoading,
     lang,

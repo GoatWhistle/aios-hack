@@ -9,6 +9,7 @@
 !/data/release.json
 /out/
 docs/
+!/docs/
 ui/
 to-delete/
 dataset-main/
@@ -51,3 +52,6 @@ CLAUDE.md
 AGENTS.md
 .cursor/
 .aider*
+
+.shots/
+.playwright-mcp/

@@ -11,9 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (
     "backend", "frontend/dist", "frontend/public/data", "frontend/public/jarvis/knowledge",
     "config", "deploy", "scripts/jarvis_stack.py", "scripts/import_jarvis_evidence.py",
-    "pyproject.toml", "requirements-ml.txt", "README.md", "ARCHITECTURE.md",
-    "JARVIS_DEPLOY.md", "JARVIS_DEMO_RUNBOOK.md", "JARVIS_CONTEXT.md",
-    "PROJECT_CONTEXT.md", "JARVIS_STATUS_20260927.md", "JARVIS_BACKLOG.md",
+    "pyproject.toml", "requirements-ml.txt", "README.md", "docs",
     "artifacts/jarvis-scenario-registry.json",
     "artifacts/surrogate-trajectory-ab-20260910/final-submission",
     "out/jarvis-evidence-20260926/runs",

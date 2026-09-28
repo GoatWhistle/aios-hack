@@ -36,7 +36,7 @@ describe('useJarvisBriefing', () => {
     const pushEvents = vi.fn();
     const mergeEvents = vi.fn();
     const setLoading = vi.fn();
-    const options = { open: true, sessionId: 's1', sceneCount: 2, hasBriefing: true, lang: 'ru', step: 0, pushEvents, mergeEvents, setLoading };
+    const options = { open: true, sessionId: 's1', sceneCount: 2, briefingStale: true, lang: 'ru', step: 0, pushEvents, mergeEvents, setLoading };
     const { rerender } = renderHook(({ scenario }) => useJarvisBriefing({ ...options, scenario }), {
       initialProps: { scenario: 'base' }
     });
@@ -58,7 +58,7 @@ describe('useJarvisBriefing', () => {
     const pushEvents = vi.fn();
     const mergeEvents = vi.fn();
     const setLoading = vi.fn();
-    const options = { open: true, sessionId: 's1', hasBriefing: false, lang: 'ru', scenario: 'base', step: 0, pushEvents, mergeEvents, setLoading };
+    const options = { open: true, sessionId: 's1', briefingStale: false, lang: 'ru', scenario: 'base', step: 0, pushEvents, mergeEvents, setLoading };
     const { rerender } = renderHook(({ sceneCount }) => useJarvisBriefing({ ...options, sceneCount }), {
       initialProps: { sceneCount: 0 }
     });
@@ -80,7 +80,7 @@ describe('useJarvisBriefing', () => {
     const pushEvents = vi.fn();
     const mergeEvents = vi.fn();
     const setLoading = vi.fn();
-    const options = { sessionId: 's1', sceneCount: 0, hasBriefing: false, lang: 'ru', scenario: 'base', step: 0, pushEvents, mergeEvents, setLoading };
+    const options = { sessionId: 's1', sceneCount: 0, briefingStale: false, lang: 'ru', scenario: 'base', step: 0, pushEvents, mergeEvents, setLoading };
     const { rerender } = renderHook(({ open }) => useJarvisBriefing({ ...options, open }), { initialProps: { open: true } });
     rerender({ open: false });
     rerender({ open: true });
@@ -95,7 +95,7 @@ describe('useJarvisBriefing', () => {
 
   it('keeps a completed briefing cached across close/reopen', async () => {
     mocks.fetchBriefing.mockResolvedValue([summaryEvent('base')]);
-    const options = { sessionId: 's1', sceneCount: 1, hasBriefing: true, lang: 'ru', scenario: 'base', step: 0, pushEvents: vi.fn(), mergeEvents: vi.fn(), setLoading: vi.fn() };
+    const options = { sessionId: 's1', sceneCount: 1, briefingStale: true, lang: 'ru', scenario: 'base', step: 0, pushEvents: vi.fn(), mergeEvents: vi.fn(), setLoading: vi.fn() };
     const { rerender } = renderHook(({ open }) => useJarvisBriefing({ ...options, open }), { initialProps: { open: true } });
     await waitFor(() => expect(options.setLoading).toHaveBeenLastCalledWith(false));
     rerender({ open: false });

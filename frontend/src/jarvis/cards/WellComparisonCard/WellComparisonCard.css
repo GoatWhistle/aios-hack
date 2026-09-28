@@ -21,7 +21,7 @@
   min-width: 0;
   padding: var(--space-3);
   border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .jarvis-well-comparison-side h4 {

@@ -6,8 +6,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: min(26rem, calc(100vw - 2 * var(--space-5)));
-  max-height: 35vh;
+  width: min(var(--size-jarvis-companion), calc(100vw - 2 * var(--space-5)));
+  max-height: var(--size-jarvis-companion-h);
   overflow: auto;
   padding: var(--space-4);
   border: var(--border-hairline) solid var(--color-border);
@@ -15,6 +15,26 @@
   background: var(--color-jarvis-face);
   color: var(--color-text);
   pointer-events: auto;
+  transform-origin: 100% 100%;
+  animation: jarvis-companion-in var(--duration-state) var(--ease-emphasis) both;
+}
+
+.jarvis-companion[data-closing='true'] {
+  animation: jarvis-companion-out var(--duration-state) var(--ease-emphasis) both;
+}
+
+@keyframes jarvis-companion-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-md), 0);
+  }
+}
+
+@keyframes jarvis-companion-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-md), 0);
+  }
 }
 
 .jarvis-companion-head,
@@ -27,6 +47,9 @@
 
 .jarvis-companion-head button,
 .jarvis-companion-foot button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
@@ -34,6 +57,22 @@
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.jarvis-companion-head button:hover,
+.jarvis-companion-foot button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-sunken);
+}
+
+.jarvis-companion-head button:focus-visible,
+.jarvis-companion-foot button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .jarvis-companion-question,
@@ -55,11 +94,23 @@
   font-size: var(--font-size-xs);
 }
 
-@media (max-width: 42rem) {
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-companion,
+  .jarvis-companion[data-closing='true'] {
+    animation: none;
+  }
+
+  .jarvis-companion-head button,
+  .jarvis-companion-foot button {
+    transition: none;
+  }
+}
+
+@media (max-width: 700px) {
   .jarvis-companion {
     right: var(--space-3);
     bottom: var(--space-3);
     width: calc(100vw - 2 * var(--space-3));
-    max-height: 28vh;
+    max-height: var(--size-jarvis-companion-h-narrow);
   }
 }

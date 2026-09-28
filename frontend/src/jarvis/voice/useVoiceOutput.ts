@@ -65,7 +65,6 @@ export const useVoiceOutput = ({
     try {
       source.current?.stop();
     } catch {
-      // The source may have ended between the UI event and this call.
     }
     source.current = null;
     if (speechSynthesisSupported()) {

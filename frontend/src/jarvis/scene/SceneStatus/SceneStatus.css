@@ -12,6 +12,35 @@
   color: var(--color-error);
 }
 
+.jarvis-status[data-kind='past-error'] {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  text-align: left;
+  color: var(--color-text-muted);
+}
+
+.jarvis-status[data-kind='past-error'][data-tone='stopped'] {
+  color: var(--color-text-subtle);
+}
+
+.jarvis-status[data-kind='past-error'][data-live='down'] {
+  gap: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.jarvis-status-past {
+  min-width: 0;
+}
+
+.jarvis-status-retry[data-ready='true'] {
+  border-color: var(--color-jarvis-ink);
+  background: var(--color-jarvis-halo);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
 .jarvis-status-dot {
   flex: none;
   width: var(--space-2);

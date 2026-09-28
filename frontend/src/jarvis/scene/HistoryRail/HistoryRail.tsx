@@ -1,30 +1,49 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { CaretLeftIcon, CaretRightIcon, CaretUpIcon } from '@phosphor-icons/react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import type { Scene } from '@/jarvis/model/scenes';
 import { beadTime, cropQuestion, glyphsOf } from '@/jarvis/scene/lib/cardGlyphs';
 import { formatStepDate } from '@/shared/lib/format';
-import { HistorySessions } from '@/jarvis/scene/HistorySessions/HistorySessions';
-import { HistoryThread } from '@/jarvis/scene/HistoryThread/HistoryThread';
+import { RailPreview, type RailPreviewData } from '@/jarvis/scene/HistoryRail/RailPreview';
+import { useRailOverflow } from '@/jarvis/scene/HistoryRail/useRailOverflow';
+import { Suggestions } from '@/jarvis/scene/Suggestions/Suggestions';
 import './HistoryRail.css';
+import './RailBead.css';
 
 interface HistoryRailProps {
   scenes: readonly Scene[];
   activeIndex: number;
   onSelect: (index: number) => void;
+  suggestions?: readonly string[];
+  onPickSuggestion?: (text: string) => void;
 }
 
-export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps) => {
+export const HistoryRail = ({
+  scenes,
+  activeIndex,
+  onSelect,
+  suggestions = [],
+  onPickSuggestion
+}: HistoryRailProps) => {
   const { lang, t } = useI18n();
-  const [hover, setHover] = useState<number | null>(null);
+  const [preview, setPreview] = useState<RailPreviewData | null>(null);
+  const [tipsOpen, setTipsOpen] = useState(true);
   const listRef = useRef<HTMLOListElement>(null);
   const beads = scenes
     .map((scene, index) => ({ scene, index }))
     .filter((entry) => entry.scene.question.trim().length > 0);
   const count = beads.length;
+  const overflow = useRailOverflow(listRef, count);
 
   useEffect(() => {
-    const node = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    node?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const list = listRef.current;
+    const node = list?.querySelector<HTMLElement>('[data-active="true"]');
+    if (list === null || list === undefined || node === null || node === undefined) {
+      return;
+    }
+    const maximum = Math.max(0, list.scrollWidth - list.clientWidth);
+    const centred = node.offsetLeft + node.offsetWidth / 2 - list.clientWidth / 2;
+    list.scrollLeft = Math.max(0, Math.min(maximum, centred));
   }, [activeIndex, count]);
 
   const onWheel = useCallback((event: WheelEvent) => {
@@ -86,88 +105,133 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
     }
   };
 
+  const hasTips = suggestions.length > 0 && onPickSuggestion !== undefined;
+  const show = (index: number, anchor: HTMLElement, scene: Scene, context: string) => {
+    setPreview({
+      index,
+      anchor: anchor.getBoundingClientRect(),
+      question: scene.question,
+      glyphs: glyphsOf(scene.cards.map((entry) => entry.card.type)),
+      caption: (scene.caption ?? scene.captionDraft).split('\n')[0] ?? '',
+      context
+    });
+  };
+  const hide = (index: number) => {
+    setPreview((value) => (value === null || value.index === index ? null : value));
+  };
+
   return (
     <div className="jarvis-rail" data-empty={count === 0 ? 'true' : undefined}>
-      <ol
-        className="jarvis-rail-beads"
-        ref={listRef}
-        role="listbox"
-        tabIndex={0}
-        aria-label={t('jarvis-rail.railLabel')}
-        aria-activedescendant={
-          beads.some((entry) => entry.index === activeIndex)
-            ? `jarvis-bead-${activeIndex}`
-            : undefined
-        }
-        onKeyDown={onKeyDown}
+      <div
+        className="jarvis-rail-row"
+        data-overflow-start={overflow.start ? 'true' : undefined}
+        data-overflow-end={overflow.end ? 'true' : undefined}
       >
-        <HistoryThread count={count} />
-        {beads.map(({ scene, index }) => {
-          const active = index === activeIndex;
-          const glyphs = glyphsOf(scene.cards.map((entry) => entry.card.type));
-          const caption = (scene.caption ?? scene.captionDraft).split('\n')[0];
-          const contextDetails = [
-            scene.context.run_id
-              ? `${t('jarvis-cards.runId')}: ${scene.context.run_id}`
-              : null,
-            `${t('jarvis-screen.contextWell')}: ${scene.context.selected_well ?? t('jarvis-screen.contextNoWell')}`,
-            `${t('jarvis-screen.contextStep')} ${scene.context.step} · ${formatStepDate(lang, scene.context.date)}`,
-            `${t('jarvis-screen.contextScenario')}: ${scene.context.scenario}`
-          ].filter((value): value is string => value !== null).join(' · ');
-          return (
-            <li
-              className="jarvis-rail-bead"
-              key={scene.id}
-              id={`jarvis-bead-${index}`}
-              role="option"
-              aria-selected={active}
-              data-active={active ? 'true' : undefined}
-              onPointerEnter={() => setHover(index)}
-              onPointerLeave={() => setHover((value) => (value === index ? null : value))}
-            >
-              <button
-                type="button"
-                className="jarvis-rail-button"
-                tabIndex={-1}
-                aria-label={t('jarvis-rail.railBead', {
-                  question: scene.question,
-                  context: contextDetails
-                })}
-                onClick={() => onSelect(index)}
-                onFocus={() => setHover(index)}
-                onBlur={() => setHover((value) => (value === index ? null : value))}
+        {overflow.start ? (
+          <button
+            type="button"
+            className="jarvis-rail-step"
+            data-edge="start"
+            aria-label={t('jarvis-rail.railOlder')}
+            onClick={() => overflow.scrollBy(-1)}
+          >
+            <CaretLeftIcon size={14} weight="bold" aria-hidden="true" />
+          </button>
+        ) : null}
+        <ol
+          className="jarvis-rail-beads"
+          ref={listRef}
+          role="listbox"
+          tabIndex={0}
+          aria-label={t('jarvis-rail.railLabel')}
+          aria-activedescendant={
+            beads.some((entry) => entry.index === activeIndex)
+              ? `jarvis-bead-${activeIndex}`
+              : undefined
+          }
+          onKeyDown={onKeyDown}
+          onScroll={() => setPreview(null)}
+        >
+          {beads.map(({ scene, index }) => {
+            const active = index === activeIndex;
+            const contextDetails = [
+              scene.context.run_id ? `${t('jarvis-cards.runId')}: ${scene.context.run_id}` : null,
+              `${t('jarvis-screen.contextWell')}: ${scene.context.selected_well ?? t('jarvis-screen.contextNoWell')}`,
+              `${t('jarvis-screen.contextStep')} ${scene.context.step} · ${formatStepDate(lang, scene.context.date)}`,
+              `${t('jarvis-screen.contextScenario')}: ${scene.context.scenario}`
+            ]
+              .filter((value): value is string => value !== null)
+              .join(' · ');
+            return (
+              <li
+                className="jarvis-rail-bead"
+                key={scene.id}
+                id={`jarvis-bead-${index}`}
+                role="option"
+                aria-selected={active}
+                data-active={active ? 'true' : undefined}
               >
-                <span className="jarvis-rail-dot" aria-hidden="true">
-                  {glyphs.map((glyph, position) => (
-                    <span
-                      className="jarvis-rail-glyph"
-                      key={`${glyph}-${position}`}
-                      style={{ '--glyph-index': `${position}` } as CSSProperties}
-                    >
-                      {glyph}
-                    </span>
-                  ))}
-                </span>
-                <span className="jarvis-rail-question">{cropQuestion(scene.question)}</span>
-                <span className="jarvis-rail-time">{beadTime(lang, scene.ts)}</span>
-              </button>
-              {hover === index ? (
-                <span className="jarvis-rail-preview" role="presentation">
-                  <span className="jarvis-rail-preview-question">{scene.question}</span>
-                  <span className="jarvis-rail-preview-glyphs" aria-hidden="true">
-                    {glyphs.length === 0 ? t('jarvis-rail.railNoCards') : glyphs.join(' ')}
-                  </span>
-                  {caption.length === 0 ? null : (
-                    <span className="jarvis-rail-preview-caption">{caption}</span>
-                  )}
-                  <span className="jarvis-rail-preview-context">{contextDetails}</span>
-                </span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
-      <HistorySessions />
+                <button
+                  type="button"
+                  className="jarvis-rail-button"
+                  tabIndex={-1}
+                  aria-label={t('jarvis-rail.railBead', {
+                    question: scene.question,
+                    context: contextDetails
+                  })}
+                  onClick={() => onSelect(index)}
+                  onPointerEnter={(event) => show(index, event.currentTarget, scene, contextDetails)}
+                  onPointerLeave={() => hide(index)}
+                  onFocus={(event) => show(index, event.currentTarget, scene, contextDetails)}
+                  onBlur={() => hide(index)}
+                >
+                  <span className="jarvis-rail-question">{cropQuestion(scene.question)}</span>
+                  <span className="jarvis-rail-time">{beadTime(lang, scene.ts)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        {overflow.end ? (
+          <button
+            type="button"
+            className="jarvis-rail-step"
+            data-edge="end"
+            aria-label={t('jarvis-rail.railNewer')}
+            onClick={() => overflow.scrollBy(1)}
+          >
+            <CaretRightIcon size={14} weight="bold" aria-hidden="true" />
+          </button>
+        ) : null}
+        {hasTips ? (
+          <button
+            type="button"
+            className="jarvis-rail-tips-toggle"
+            aria-expanded={tipsOpen}
+            aria-controls="jarvis-rail-tips-list"
+            aria-label={t(
+              tipsOpen ? 'jarvis-screen.suggestionsHide' : 'jarvis-screen.suggestionsShow'
+            )}
+            title={t(
+              tipsOpen ? 'jarvis-screen.suggestionsHide' : 'jarvis-screen.suggestionsShow'
+            )}
+            onClick={() => setTipsOpen((value) => !value)}
+          >
+            <CaretUpIcon size={14} weight="bold" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      {hasTips ? (
+        <div
+          className="jarvis-rail-tips-list"
+          id="jarvis-rail-tips-list"
+          data-open={tipsOpen ? 'true' : 'false'}
+          inert={!tipsOpen}
+        >
+          <Suggestions items={suggestions} onPick={onPickSuggestion} />
+        </div>
+      ) : null}
+      <RailPreview data={preview} />
     </div>
   );
 };

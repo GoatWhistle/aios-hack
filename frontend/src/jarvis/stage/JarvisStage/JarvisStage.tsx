@@ -3,7 +3,7 @@ import { CONSOLE_OVERLAY_ID } from '@/shared/lib/overlay';
 import { useJarvisSessionContext } from '@/jarvis/provider/contexts';
 import { JarvisScreen } from '@/jarvis/screen/JarvisScreen/JarvisScreen';
 import { JarvisCompanion } from '@/jarvis/stage/JarvisCompanion/JarvisCompanion';
-import { SphereBurstLayer } from '@/jarvis/sphere/SphereBurstLayer/SphereBurstLayer';
+import { SphereFlight } from '@/jarvis/stage/SphereFlight/SphereFlight';
 import {
   framesAreLagging,
   isMoving,
@@ -107,7 +107,7 @@ export const JarvisStage = ({ children }: { children: ReactNode }) => {
         hidden={transition.phase !== 'closed'}
         inert={transition.phase !== 'closed'}
       />
-      <SphereBurstLayer />
+      <SphereFlight />
       {transition.phase === 'closed' ? <JarvisCompanion /> : null}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useJarvisSessionContext, useJarvisSphere } from '@/jarvis/provider/contexts';
 import { LAUNCHER_SLOT_ID } from '@/jarvis/stage/JarvisLauncher/JarvisLauncher';
 import { STAGE_SLOT_ID } from '@/jarvis/scene/lib/stageSlot';
@@ -12,6 +12,8 @@ import {
   type BurstMode
 } from '@/jarvis/sphere/lib/sphereBurst';
 import { readSlot, type SlotRect } from '@/jarvis/sphere/lib/sphereSlot';
+import { usePoseFlip } from '@/jarvis/sphere/lib/usePoseFlip';
+import { useSpherePose } from '@/jarvis/stage/SphereFlight/useSpherePose';
 import './SphereBurstLayer.css';
 
 const REST: BurstFrame = { scale: 1, opacity: 1, burst: 0 };
@@ -36,12 +38,17 @@ const boxStyle = (slot: SlotRect): CSSProperties => ({
 export const SphereBurstLayer = () => {
   const { transition, crossfade } = useJarvisSessionContext();
   const { sphereState, audioLevel } = useJarvisSphere();
+  const pose = useSpherePose();
   const [play, setPlay] = useState<Play | null>(null);
   const raf = useRef(0);
   const home = useRef<SlotRect | null>(null);
+  const box = useRef<HTMLSpanElement>(null);
+  const shownSlot = useRef<SlotRect | null>(null);
+  shownSlot.current = play?.slot ?? null;
 
-  const mode = burstModeOf(transition.phase);
   const closing = transition.direction === 'closing';
+  const faceSettling = transition.direction === 'opening' && transition.phase === 'settling';
+  const mode = faceSettling ? 'none' : burstModeOf(transition.phase);
   const settled = transition.phase === 'open';
   const shut = transition.phase === 'closed';
 
@@ -79,7 +86,7 @@ export const SphereBurstLayer = () => {
     setPlay({ mode, slot, frame: burstFrameAt(mode, 0) });
     const tick = (now: number) => {
       const elapsed = now - start;
-      setPlay({ mode, slot, frame: burstFrameAt(mode, elapsed) });
+      setPlay((prev) => ({ mode, slot: prev?.slot ?? slot, frame: burstFrameAt(mode, elapsed) }));
       if (elapsed < duration) {
         raf.current = requestAnimationFrame(tick);
       }
@@ -98,12 +105,15 @@ export const SphereBurstLayer = () => {
       }
     };
     const timer = window.setTimeout(sync, crossfade ? 0 : burstDurationOf('materialize'));
+    const flight = typeof document === 'undefined' ? null : document.querySelector('.jarvis-sphere-flight');
+    flight?.addEventListener('transitionend', sync);
     window.addEventListener('resize', sync);
     return () => {
       window.clearTimeout(timer);
+      flight?.removeEventListener('transitionend', sync);
       window.removeEventListener('resize', sync);
     };
-  }, [settled, crossfade]);
+  }, [settled, crossfade, pose]);
 
   useEffect(() => {
     if (shut) {
@@ -114,17 +124,23 @@ export const SphereBurstLayer = () => {
 
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
+  const shown = useCallback(() => shownSlot.current, []);
+  const target = useCallback(() => slotOf(STAGE_SLOT_ID), []);
+  const place = useCallback(
+    (slot: SlotRect) => setPlay((prev) => (prev === null ? prev : { ...prev, slot })),
+    []
+  );
+  usePoseFlip(box, pose, settled, shown, target, place);
+
   if (play === null) {
     return null;
   }
 
   return (
-    <span
-      className="jarvis-sphere-burst"
-      data-mode={play.mode}
-      style={{ ...boxStyle(play.slot), ...burstStyle(play.frame) }}
-    >
-      <EnergySphere state={sphereState} audio={audioLevel} burst={play.frame.burst} />
+    <span ref={box} className="jarvis-sphere-burst" data-mode={play.mode} style={boxStyle(play.slot)}>
+      <span className="jarvis-sphere-burst-body" style={burstStyle(play.frame)}>
+        <EnergySphere state={sphereState} audio={audioLevel} burst={play.frame.burst} />
+      </span>
     </span>
   );
 };

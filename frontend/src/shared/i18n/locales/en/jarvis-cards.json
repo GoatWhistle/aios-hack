@@ -254,6 +254,7 @@
   "provenanceKind.recorded": "Recorded artifact",
   "provenanceKind.replay": "Policy replay",
   "provenanceKind.unmeasured": "Not measured",
+  "provenanceKind.unavailable": "Source unavailable",
   "provenanceKind.unknown": "Source not stated",
   "ruleDecision": "Decision",
   "ruleImpact": "NPV contribution",

@@ -18,7 +18,6 @@ const UNIFORMS = [
   'u_deep',
   'u_rim',
   'u_spark',
-  'u_shadow'
 ] as const;
 
 export type UniformName = (typeof UNIFORMS)[number];

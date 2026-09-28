@@ -1,6 +1,4 @@
 .jarvis-map {
-  --jarvis-map-node-font: 2.6px;
-
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -36,7 +34,7 @@
   fill: var(--color-surface-sunken);
   stroke: var(--color-border-strong);
   stroke-width: 0.4;
-  transition: r var(--duration-state) var(--ease-out);
+  transition: fill var(--duration-state) var(--ease-out);
 }
 
 .jarvis-map-node[data-kind='ui'] .jarvis-map-dot,
@@ -51,13 +49,19 @@
 
 .jarvis-map-text {
   fill: var(--color-text-muted);
-  font-size: var(--jarvis-map-node-font);
   text-anchor: middle;
+}
+
+.jarvis-map-node[data-on='true'] {
+  paint-order: stroke;
 }
 
 .jarvis-map-node[data-on='true'] .jarvis-map-text {
   fill: var(--color-text);
   font-weight: var(--font-weight-medium);
+  stroke: var(--color-surface);
+  stroke-width: 0.9;
+  paint-order: stroke;
 }
 
 .jarvis-map-count {
@@ -92,7 +96,7 @@
 .jarvis-map-detail-summary {
   margin: 0;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-body);
+  line-height: var(--line-height-base);
   color: var(--color-text-muted);
 }
 

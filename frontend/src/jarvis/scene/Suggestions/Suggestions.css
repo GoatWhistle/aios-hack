@@ -1,39 +1,71 @@
 .jarvis-suggestions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.jarvis-suggestions > li {
+  display: flex;
+  min-width: 0;
+  max-width: var(--size-jarvis-suggestion-max);
+  animation: jarvis-suggestion-arrive var(--duration-drawer) var(--ease-out) backwards;
+  animation-delay: calc(var(--suggestion-step, 0) * var(--duration-jarvis-stagger));
+}
+
 .jarvis-suggestion {
-  min-height: var(--size-hit-min);
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-height: var(--size-control-height);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-bottom: var(--border-hairline) solid var(--color-border);
+  border-radius: 0;
+  background: none;
   color: var(--color-text-muted);
   font-family: inherit;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  text-align: left;
+  overflow: hidden;
   cursor: pointer;
   transition:
-    color var(--duration-state) var(--ease-out),
-    border-color var(--duration-state) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .jarvis-suggestion:hover {
+  border-bottom-color: var(--color-jarvis-ink);
   color: var(--color-text);
-  border-color: var(--color-jarvis-body);
+}
+
+.jarvis-suggestion:active {
+  color: var(--color-jarvis-ink);
 }
 
 .jarvis-suggestion:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+@keyframes jarvis-suggestion-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-md), 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .jarvis-suggestions > li {
+    animation: none;
+  }
+
   .jarvis-suggestion {
     transition: none;
   }

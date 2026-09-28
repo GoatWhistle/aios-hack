@@ -48,18 +48,20 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding-left: var(--space-2);
-  border-left: var(--border-thick) solid var(--color-border);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
 .jarvis-physics-checks li[data-status='warning'] {
-  border-left-color: var(--color-warning);
+  background: var(--color-synthetic-bg);
+  color: var(--color-synthetic);
 }
 
 .jarvis-physics-checks li[data-status='blocking'] {
-  border-left-color: var(--color-error);
+  background: var(--color-error-bg);
   color: var(--color-error);
 }
 
@@ -69,6 +71,11 @@
   color: var(--color-text);
 }
 
+.jarvis-physics-checks li[data-status='warning'] .jarvis-physics-check-id,
+.jarvis-physics-checks li[data-status='blocking'] .jarvis-physics-check-id {
+  color: inherit;
+}
+
 .jarvis-physics-check-detail {
-  line-height: var(--line-height-body);
+  line-height: var(--line-height-base);
 }

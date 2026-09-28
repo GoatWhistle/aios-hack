@@ -11,6 +11,14 @@ export const readStatusBoard = (payload: unknown): StatusBoardPayload | null => 
   const diagnostics = isRecord(payload.diagnostics) ? payload.diagnostics : {};
   const violations = isRecord(payload.violations) ? payload.violations : {};
   const alertSource = isRecord(payload.diagnostics) ? diagnostics.rows : payload.alerts;
+  const recorded = champion.recorded === true
+    || last.recorded === true
+    || diagnostics.recorded === true
+    || violations.recorded === true
+    || list(alertSource).length > 0;
+  if (!recorded && !isStr(payload.scenario) && !isStr(payload.generated_at)) {
+    return null;
+  }
   return {
     champion: {
       recorded: champion.recorded === true,

@@ -58,6 +58,15 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  transform-origin: 50% 0;
+  transition:
+    opacity var(--duration-state) var(--ease-emphasis),
+    transform var(--duration-state) var(--ease-emphasis);
+}
+
+.jarvis-card[data-settling='true'] .jarvis-card-body {
+  opacity: 0;
+  transform: translate3d(0, var(--rise-sm), 0);
 }
 
 .jarvis-card-foot {
@@ -78,6 +87,40 @@
   font-family: inherit;
   font-size: var(--font-size-sm);
   cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.jarvis-card-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--size-hit-min);
+  padding: var(--space-2);
+}
+
+.jarvis-card-toggle svg {
+  flex: none;
+  transition: transform var(--duration-state) var(--ease-emphasis);
+}
+
+.jarvis-card[data-expanded='true'] .jarvis-card-toggle svg {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-card-toggle,
+  .jarvis-card-open,
+  .jarvis-card-toggle svg,
+  .jarvis-card-body {
+    transition: none;
+  }
+
+  .jarvis-card[data-settling='true'] .jarvis-card-body {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .jarvis-card-open {
@@ -95,4 +138,41 @@
 .jarvis-card-open:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-card summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.jarvis-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.jarvis-card summary::before {
+  content: '';
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-right: var(--border-thick) solid currentColor;
+  border-bottom: var(--border-thick) solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--duration-state) var(--ease-emphasis);
+}
+
+.jarvis-card details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.jarvis-card summary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-card summary::before {
+    transition: none;
+  }
 }

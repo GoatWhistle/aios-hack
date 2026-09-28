@@ -1,6 +1,5 @@
 {
   "closeLabel": "Close Jarvis",
-  "doorLabel": "Console",
   "explain": "Explain",
   "explainHint": "Show the decision journal facts for this well and step",
   "explainQuestion": "Why this decision for well {well}?",

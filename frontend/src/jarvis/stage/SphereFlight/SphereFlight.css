@@ -1,0 +1,28 @@
+.jarvis-sphere-flight {
+  --sphere-home-x: calc(var(--space-2) + var(--size-sphere-box) / 2);
+  --sphere-home-y: calc(var(--space-4) + var(--size-sphere-box) / 2);
+  --sphere-x: 0px;
+  --sphere-y: 0px;
+  --sphere-k: 1;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-stage-sphere);
+  transform: translate3d(var(--sphere-x), var(--sphere-y), 0) scale(var(--sphere-k));
+  transform-origin: var(--sphere-home-x) var(--sphere-home-y);
+  transition: transform var(--duration-sphere-flight) var(--ease-emphasis);
+  pointer-events: none;
+}
+
+.jarvis-sphere-flight[data-pose='resting'] {
+  --sphere-home-x: calc(var(--space-2) + var(--size-sphere-resting) / 2);
+  --sphere-home-y: calc(var(--space-4) + var(--size-sphere-resting) / 2);
+  --sphere-x: calc(50vw - var(--sphere-home-x));
+  --sphere-y: calc(30vh - var(--sphere-home-y));
+  --sphere-k: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-sphere-flight {
+    transition: none;
+  }
+}

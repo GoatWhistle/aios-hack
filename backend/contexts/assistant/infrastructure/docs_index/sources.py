@@ -74,6 +74,12 @@ def walk_documents(roots: Sequence[Path]) -> list[Path]:
         if readme.is_file() and readme not in seen:
             seen.add(readme)
             found.append(readme)
+        documentation = root / "docs"
+        if documentation.is_dir():
+            for path in sorted(documentation.glob("*.md"))[:ROOT_MARKDOWN_LIMIT]:
+                if path not in seen:
+                    seen.add(path)
+                    found.append(path)
         checkpoints = root / "checkpoints"
         if checkpoints.is_dir():
             for path in sorted(checkpoints.glob("*.md")):

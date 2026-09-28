@@ -17,13 +17,20 @@ export const readPhysics = (payload: unknown): PhysicsPayload | null => {
   if (!isRecord(payload)) {
     return null;
   }
+  const admissible = boolOrNull(payload.admissible);
+  const blocking = numOrNull(payload.blocking);
+  const warnings = numOrNull(payload.warnings);
+  const checks = list(payload.checks)
+    .map(physicsCheck)
+    .filter((check): check is PhysicsCheck => check !== null);
+  if (admissible === null && blocking === null && warnings === null && checks.length === 0) {
+    return null;
+  }
   return {
     run_id: isStr(payload.run_id) ? payload.run_id : '',
-    admissible: boolOrNull(payload.admissible),
-    blocking: numOrNull(payload.blocking),
-    warnings: numOrNull(payload.warnings),
-    checks: list(payload.checks)
-      .map(physicsCheck)
-      .filter((check): check is PhysicsCheck => check !== null)
+    admissible,
+    blocking,
+    warnings,
+    checks
   };
 };

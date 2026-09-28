@@ -1,6 +1,6 @@
 .jarvis-orbit {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: var(--space-4);
   width: 100%;
@@ -9,26 +9,82 @@
 .jarvis-orbit-seat {
   min-width: 0;
   animation: jarvis-orbit-arrive var(--duration-drawer) var(--ease-out) backwards;
-  animation-delay: var(--orbit-delay);
+  animation-delay: calc(var(--orbit-step, 0) * var(--duration-jarvis-stagger));
 }
 
-.jarvis-orbit-seat[data-open='true'] { grid-column: 1 / -1; }
+.jarvis-orbit-seat[data-full='true'] {
+  grid-column: 1 / -1;
+}
+
+.jarvis-orbit-seat:not([data-wide='true']) .jarvis-card {
+  max-width: var(--size-jarvis-card-open-max);
+}
+
+.jarvis-orbit-seat[data-full='true']:not([data-wide='true']) .jarvis-card {
+  margin-inline: auto;
+}
 
 .jarvis-orbit .jarvis-card,
 .jarvis-orbit .jarvis-card[data-expanded='true'] {
   width: 100%;
-  max-height: 340px;
+  max-height: var(--size-jarvis-card-max-h);
 }
 
-.jarvis-orbit .jarvis-card[data-expanded='true'] { max-height: none; }
-.jarvis-orbit .jarvis-card[data-expanded='true'] .jarvis-card-body { overflow: visible; }
-.jarvis-orbit .jarvis-card-foot { flex-wrap: wrap; }
+.jarvis-orbit .jarvis-card[data-expanded='true'] {
+  max-height: none;
+}
+
+.jarvis-orbit .jarvis-card[data-expanded='true'] .jarvis-card-body {
+  overflow: visible;
+}
+
+.jarvis-orbit .jarvis-card-foot {
+  flex-wrap: wrap;
+}
+
+.jarvis-orbit .jarvis-runs {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.jarvis-orbit .jarvis-runs-table {
+  width: auto;
+  min-width: 100%;
+}
+
+.jarvis-orbit .jarvis-runs-table th,
+.jarvis-orbit .jarvis-runs-table td {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.jarvis-orbit .jarvis-runs-table tbody th {
+  align-items: flex-start;
+}
 
 @keyframes jarvis-orbit-arrive {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--rise-md), 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .jarvis-orbit-seat { animation: none; }
+  .jarvis-orbit-seat {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .jarvis-orbit-seat[data-wide='true'] {
+    grid-column: 1 / -1;
+  }
+
+  .jarvis-orbit-seat[data-open='true']:not([data-wide='true']) .jarvis-card {
+    max-width: none;
+  }
 }

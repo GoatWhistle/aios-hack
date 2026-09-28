@@ -1,0 +1,87 @@
+.jarvis-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--size-jarvis-prose);
+  margin-inline: auto;
+  text-align: center;
+}
+
+.jarvis-offline-title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-snug);
+  color: var(--color-text);
+}
+
+.jarvis-offline-reason {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  color: var(--color-text-muted);
+}
+
+.jarvis-offline[data-pose='resting'] .jarvis-offline-retry {
+  margin-top: var(--space-3);
+}
+
+.jarvis-offline-retry {
+  min-height: var(--size-tap-min);
+  padding: var(--space-panel-y) var(--space-6);
+  border: var(--border-hairline) solid var(--color-error);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-error);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.jarvis-offline-retry:hover {
+  background: var(--color-error-bg);
+}
+
+.jarvis-offline-retry:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-offline[data-pose='perched'] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-panel-y) var(--space-panel-x);
+  border: var(--border-hairline) solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-bg);
+  text-align: left;
+}
+
+.jarvis-offline[data-pose='perched'] .jarvis-offline-title {
+  font-size: var(--font-size-sm);
+}
+
+.jarvis-offline[data-pose='perched'] .jarvis-offline-reason {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.jarvis-offline[data-pose='perched'] .jarvis-offline-retry {
+  flex: none;
+  min-height: var(--size-hit-min);
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-offline-retry {
+    transition: none;
+  }
+}

@@ -30,7 +30,9 @@
 
 .jarvis-metric-number {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }

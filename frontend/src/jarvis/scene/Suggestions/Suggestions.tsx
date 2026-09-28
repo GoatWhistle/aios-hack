@@ -1,3 +1,4 @@
+import { type CSSProperties } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import './Suggestions.css';
 
@@ -6,6 +7,8 @@ interface SuggestionsProps {
   onPick: (text: string) => void;
 }
 
+const MAX_STEPS = 6;
+
 export const Suggestions = ({ items, onPick }: SuggestionsProps) => {
   const t = useT();
   if (items.length === 0) {
@@ -13,9 +16,14 @@ export const Suggestions = ({ items, onPick }: SuggestionsProps) => {
   }
   return (
     <ul className="jarvis-suggestions" aria-label={t('jarvis-screen.suggestionsLabel')}>
-      {items.map((text) => (
-        <li key={text}>
-          <button type="button" className="jarvis-suggestion" onClick={() => onPick(text)}>
+      {items.map((text, index) => (
+        <li key={text} style={{ '--suggestion-step': `${Math.min(index, MAX_STEPS)}` } as CSSProperties}>
+          <button
+            type="button"
+            className="jarvis-suggestion"
+            title={text}
+            onClick={() => onPick(text)}
+          >
             {text}
           </button>
         </li>

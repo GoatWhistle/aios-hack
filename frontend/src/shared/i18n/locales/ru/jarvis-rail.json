@@ -2,10 +2,14 @@
   "orbitLabel": "Карточки ответа",
   "railBead": "Сцена: {question}. Контекст: {context}",
   "railLabel": "Лента памяти",
+  "railNewer": "Следующие вопросы",
   "railNoCards": "без карточек",
+  "railOlder": "Предыдущие вопросы",
   "sessionNew": "Новая сессия",
   "sessionNoQuestion": "без вопроса",
+  "sessionScenes": "{count} сц.",
   "sessionToday": "сегодня",
   "sessionYesterday": "вчера",
-  "sessionsLabel": "Сессия"
+  "sessionsLabel": "Сессия",
+  "sessionsPick": "Сессия: {session}. Выбрать другую"
 }

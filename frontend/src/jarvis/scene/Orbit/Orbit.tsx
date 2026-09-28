@@ -4,6 +4,7 @@ import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { Card } from '@/jarvis/cards/Card/Card';
 import { CardBody } from '@/jarvis/cards/CardBody/CardBody';
 import type { SceneCard } from '@/jarvis/model/scenes';
+import { fullRowSeats } from '@/jarvis/scene/Orbit/orbitRows';
 import './Orbit.css';
 
 interface OrbitProps {
@@ -12,7 +13,8 @@ interface OrbitProps {
   briefingLoading?: boolean;
 }
 
-const STAGGER_MS = 80;
+const WIDE_TYPES = new Set(['run-list', 'compare', 'series', 'well-comparison', 'field-map', 'system-map']);
+const STAGGER_CAP = 6;
 
 export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) => {
   const t = useT();
@@ -25,17 +27,21 @@ export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) =>
     setExpanded(proposalId ?? firstId ?? null);
   }, [proposalId, firstId]);
 
+  const rows = fullRowSeats(
+    cards.map((entry) => ({ wide: WIDE_TYPES.has(entry.card.type), open: expanded === entry.id }))
+  );
+
   return (
     <div
       className="jarvis-orbit"
       aria-label={t('jarvis-rail.orbitLabel')}
       role="group"
-      data-dense={cards.length > 6 ? 'true' : undefined}
     >
       {cards.map((entry, index) => {
         const open = expanded === entry.id;
+        const spansRow = rows[index] === true;
         const style = {
-          '--orbit-delay': `${index * STAGGER_MS}ms`
+          '--orbit-step': Math.min(index, STAGGER_CAP)
         } as CSSProperties;
         return (
           <div
@@ -43,6 +49,8 @@ export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) =>
             key={entry.id}
             style={style}
             data-open={open ? 'true' : undefined}
+            data-wide={WIDE_TYPES.has(entry.card.type) ? 'true' : undefined}
+            data-full={spansRow ? 'true' : undefined}
           >
             <Card
               card={entry.card}

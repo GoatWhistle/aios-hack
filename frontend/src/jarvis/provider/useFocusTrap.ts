@@ -18,6 +18,9 @@ export const focusableWithin = (root: Element | null): HTMLElement[] => {
     if (node.closest('[hidden], [inert], [aria-hidden="true"]') !== null) return false;
     if (node.getAttribute('tabindex') === '-1') return false;
     if (node.tagName !== 'SUMMARY' && node.tabIndex === -1) return false;
+    if (node.offsetParent === null && getComputedStyle(node).position !== 'fixed') return false;
+    const box = node.getClientRects();
+    if (box.length === 0) return false;
     let ancestor: Element | null = node;
     while (ancestor !== null && ancestor !== root) {
       if (ancestor instanceof HTMLDetailsElement && !ancestor.open) {

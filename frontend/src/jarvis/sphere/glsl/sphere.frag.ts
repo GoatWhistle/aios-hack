@@ -33,7 +33,6 @@ uniform vec3 u_pulseColor;
 uniform vec3 u_deep;
 uniform vec3 u_rim;
 uniform vec3 u_spark;
-uniform vec3 u_shadow;
 
 ${SPHERE_NOISE}
 ${SPHERE_BOLTS}
@@ -128,17 +127,15 @@ void main() {
   accum += mix(u_body, u_pulseColor, 0.35) * halo * (1.0 - light);
   density += halo * 0.6 * (1.0 - light);
 
-  vec2 sp = vec2(p.x, (p.y + 0.5) * 1.9);
-  float shade = exp(-pow(length(sp) * 1.35, 2.2)) * smoothstep(0.0, -0.2, p.y);
-  float shadow = shade * u_halo * light * (0.9 + 0.2 * u_burst);
-  accum += u_shadow * shadow;
-  density += shadow * 0.85;
-
   float shock = u_burst * exp(-pow((r - u_burst * 1.9) * 4.2, 2.0));
   accum += u_rim * shock * 2.2;
   density += shock;
 
   accum = mix(accum, vec3(dot(accum, vec3(0.35, 0.28, 0.28))) + vec3(0.65, 0.13, 0.09) * u_error, u_error * 0.72);
+
+  float frame = smoothstep(1.38, 1.04, length(uv));
+  accum *= frame;
+  density *= frame;
 
   float alpha = clamp(density, 0.0, 1.0);
   vec3 mapped = accum / (1.0 + accum * 0.55);
