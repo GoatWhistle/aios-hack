@@ -678,3 +678,52 @@ def test_keepalive_writer_reports_a_disconnected_client() -> None:
 
     assert isinstance(writer.failure, BrokenPipeError)
     assert failures == ["cancelled"]
+
+@pytest.mark.parametrize("code", ["provider-timeout", UpstreamError.default_code])
+def test_recorded_journal_fallback_reports_provider_failure_in_health(store, knowledge, monkeypatch, code):
+    from backend.contexts.assistant.application.tools.context import Card
+    payload = json.loads((repo_root() / "tests/backend/contexts/assistant/fixtures/journal_s10.json").read_text())
+    card = Card(type="rule", title="Журнал", payload=payload, provenance="recorded-generation-journal")
+    monkeypatch.setattr("backend.contexts.assistant.application.orchestrator_compose.run_tool", lambda *args: card)
+    class FailedClient(FakeChatClient):
+        def stream(self, *args, **kwargs):
+            raise UpstreamError("provider unavailable", code=code)
+            yield
+    orchestrator = Orchestrator(client=FailedClient(rounds=[], caption=""), store=store, knowledge=knowledge)
+    service = JarvisService(store=store, knowledge=knowledge, env={}, orchestrator=orchestrator)
+    with contextmanager(run)(service) as url:
+        events = read_events(post(f"{url}/api/jarvis/ask", {
+            "session_id": "fallback-health", "question": "Раскрой журнал решений этой скважины",
+            "context": {"run_id": payload["run_id"], "selected_well": "62", "step": 0},
+        }))
+        assert next(event for event in events if event["type"] == "done")["provider_error_code"] == code
+        with urllib.request.urlopen(f"{url}/api/jarvis/health", timeout=5) as response:
+            health = json.loads(response.read())
+        assert health["last_request"]["outcome"] == "fallback"
+        assert health["last_request"]["error_code"] == code
+
+
+def test_http_overflow_finishes_without_auxiliary_summary_llm(store, knowledge, tmp_path):
+    from backend.contexts.assistant.domain.session import HISTORY_LIMIT
+    class SlowSummaryClient(FakeChatClient):
+        summary_calls = 0
+        def stream(self, messages, *args, **kwargs):
+            if any("Сожми эти обмены" in str(message.content) for message in messages):
+                self.summary_calls += 1
+                time.sleep(0.15)
+            yield from super().stream(messages, *args, **kwargs)
+    disk = SessionDisk(tmp_path / "sessions")
+    for index in range(HISTORY_LIMIT):
+        disk.append("memory-http", {"type": "ask", "question": f"Archived question {index}"})
+        disk.append("memory-http", {"type": "caption", "text": "Archived observed35"})
+    client = SlowSummaryClient(rounds=[], caption="Ready answer.")
+    orchestrator = Orchestrator(client=client, store=store, knowledge=knowledge, disk=disk)
+    service = JarvisService(store=store, knowledge=knowledge, env={}, orchestrator=orchestrator)
+    with contextmanager(run)(service) as url:
+        started = time.monotonic()
+        events = read_events(post(f"{url}/api/jarvis/ask", {"session_id": "memory-http", "question": "New question"}))
+        elapsed = time.monotonic() - started
+        assert events[-1]["type"] == "done"
+        assert client.summary_calls == 0
+        assert elapsed < 0.12
+        assert "Archived observed35" in SessionStore(disk=SessionDisk(tmp_path / "sessions")).get("memory-http").summary_text

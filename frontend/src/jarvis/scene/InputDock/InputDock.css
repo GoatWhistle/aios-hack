@@ -66,3 +66,25 @@
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
 }
+
+.jarvis-dock { width: min(1120px, 100%); align-items: center; }
+.jarvis-dock-input { min-height: 48px; }
+.jarvis-dock-cancel {
+  flex: none;
+  min-height: var(--size-hit-min);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.jarvis-dock-cancel:focus-visible { outline: var(--focus-ring-width) solid var(--color-focus); }
+@media (max-width: 700px) {
+  .jarvis-dock { flex-wrap: wrap; gap: var(--space-2); padding: var(--space-2); }
+  .jarvis-dock-input { flex-basis: 100%; }
+  .jarvis-dock-count { margin-right: auto; }
+  .jarvis-dock-send { padding: 0 var(--space-3); }
+}

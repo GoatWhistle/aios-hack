@@ -50,13 +50,21 @@ def _is_excluded_path(path: str) -> bool:
 
 def tracked_markdown_files(root: Path) -> list[Path]:
     output = subprocess.run(
-        ["git", "ls-files", "*.md"],
+        ["git", "ls-files", "-z", "*.md"],
         cwd=root,
         capture_output=True,
         text=True,
         check=True,
     ).stdout
-    return [root / line for line in output.splitlines() if line]
+    return [root / name for name in output.split("\0") if name]
+
+
+def test_tracked_markdown_preserves_unicode_names(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    document = tmp_path / "00-ВЫВОД.md"
+    document.write_text("# Итог\n", encoding="utf-8")
+    subprocess.run(["git", "add", document.name], cwd=tmp_path, check=True)
+    assert tracked_markdown_files(tmp_path) == [document]
 
 def find_broken_links(root: Path, md_files: list[Path]) -> list[tuple[str, int, str]]:
     broken: list[tuple[str, int, str]] = []

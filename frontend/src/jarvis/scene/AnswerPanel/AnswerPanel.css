@@ -76,3 +76,8 @@
     transition: none;
   }
 }
+
+/* The complete answer is part of the workspace and uses its single scroll area. */
+.jarvis-answer { max-width: none; }
+.jarvis-answer-toggle { border-radius: var(--radius-md); font-size: var(--font-size-sm); }
+.jarvis-answer-body { max-height: none; overflow: visible; line-height: 1.65; }

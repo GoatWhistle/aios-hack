@@ -360,7 +360,11 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
                         body = event.as_dict()
                         body["request_id"] = request_id
                         if event.type == "done":
-                            outcome = "success"
+                            if event.body.get("completion") == "recorded-journal-fallback":
+                                outcome = "fallback"
+                                error_code = str(event.body.get("provider_error_code") or "upstream")
+                            else:
+                                outcome = "success"
                         elif event.type == "error":
                             error_code = str(event.body.get("code") or "upstream")
                         writer.write(encode_event(body))

@@ -13,6 +13,93 @@ const context: JarvisAskContext = {
 describe('briefing refresh event merge', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('restores an unterminated snapshot as interrupted while preserving evidence and allowing a new ask', async () => {
+    const calls: string[] = [];
+    const transport: JarvisTransport = {
+      mode: 'sse',
+      ask: (request) => ({ async *[Symbol.asyncIterator]() {
+        calls.push(request.question);
+        yield { type: 'scene', scene_id: 'next', question: request.question, context } as JarvisEvent;
+        yield { type: 'done', scene_id: 'next', elapsed_ms: 1, tool_rounds: 0 } as JarvisEvent;
+      } })
+    };
+    const { result } = renderHook(() => useJarvisSession(transport, 'ru', context));
+    act(() => result.current.pushEvents([
+      { type: 'scene', scene_id: 'complete', question: 'completed', context },
+      { type: 'done', scene_id: 'complete', elapsed_ms: 1, tool_rounds: 0 },
+      { type: 'scene', scene_id: 'legacy', question: 'legacy unfinished', context },
+      { type: 'card', scene_id: 'legacy', card_id: 'c1', order: 0, card: { type: 'metric', title: 'Данные', payload: {}, provenance: 'recorded' } },
+      { type: 'answer_delta', scene_id: 'legacy', text: 'Незавершённый текст' }
+    ]));
+    expect(result.current.busy).toBe(false);
+    expect(result.current.scenes.status).toBeNull();
+    expect(result.current.scenes.tool).toBeNull();
+    const restored = result.current.scenes.scenes[1];
+    expect(restored.done).toBe(true);
+    expect(restored.error?.code).toBe('interrupted');
+    expect(restored.cards[0].card.title).toBe('Данные');
+    expect(restored.answerDraft).toBe('Незавершённый текст');
+    expect(result.current.scenes.scenes[0].error).toBeNull();
+    act(() => result.current.askQuestion('Продолжим?'));
+    await waitFor(() => expect(calls).toEqual(['Продолжим?']));
+    await waitFor(() => expect(result.current.busy).toBe(false));
+  });
+
+  it.each(['event', 'throw'])('attributes a live %s failure to its request while an older scene is selected', async (failure) => {
+    let fail!: () => void;
+    const waiting = new Promise<void>((resolve) => { fail = resolve; });
+    const transport: JarvisTransport = {
+      mode: 'sse',
+      ask: () => ({ async *[Symbol.asyncIterator]() {
+        yield { type: 'scene', scene_id: 'live', question: 'live', context } as JarvisEvent;
+        await waiting;
+        if (failure === 'throw') throw new Error('transport failed');
+        yield { type: 'error', code: 'upstream', message: 'legacy provider error' } as JarvisEvent;
+      } })
+    };
+    const { result } = renderHook(() => useJarvisSession(transport, 'ru', context));
+    act(() => result.current.pushEvents([
+      { type: 'scene', scene_id: 'archived', question: 'archived', context },
+      { type: 'done', scene_id: 'archived', elapsed_ms: 1, tool_rounds: 0 }
+    ]));
+    act(() => result.current.askQuestion('live'));
+    await waitFor(() => expect(result.current.scenes.scenes.at(-1)?.sourceId).toBe('live'));
+    act(() => result.current.selectScene(0));
+    await act(async () => { fail(); });
+    await waitFor(() => expect(result.current.busy).toBe(false));
+    expect(result.current.scenes.scenes[0].error).toBeNull();
+    expect(result.current.scenes.scenes[1].error?.code).toBe('upstream');
+    expect(result.current.scenes.scenes[1].done).toBe(true);
+    expect(result.current.scenes.status).toBeNull();
+  });
+
+  it('releases live progress on request failure after a briefing was appended during the ask', async () => {
+    let fail!: () => void;
+    const waiting = new Promise<void>((resolve) => { fail = resolve; });
+    const transport: JarvisTransport = {
+      mode: 'sse',
+      ask: () => ({ async *[Symbol.asyncIterator]() {
+        yield { type: 'scene', scene_id: 'live', question: 'live', context } as JarvisEvent;
+        await waiting;
+        yield { type: 'error', code: 'upstream', message: 'provider failed' } as JarvisEvent;
+      } })
+    };
+    const { result } = renderHook(() => useJarvisSession(transport, 'ru', context));
+    act(() => result.current.askQuestion('live'));
+    await waitFor(() => expect(result.current.scenes.scenes.at(-1)?.sourceId).toBe('live'));
+    act(() => result.current.mergeEvents([
+      { type: 'scene', scene_id: 'briefing', question: '', context },
+      { type: 'done', scene_id: 'briefing', elapsed_ms: 1, tool_rounds: 0 }
+    ]));
+    expect(result.current.scenes.scenes.at(-1)?.sourceId).toBe('briefing');
+    expect(result.current.busy).toBe(true);
+    await act(async () => { fail(); });
+    await waitFor(() => expect(result.current.busy).toBe(false));
+    expect(result.current.scenes.scenes[0].error?.code).toBe('upstream');
+    expect(result.current.scenes.status).toBeNull();
+    expect(result.current.scenes.tool).toBeNull();
+  });
+
   it('does not cancel or replace an active user answer', async () => {
     const requestSignals: AbortSignal[] = [];
     const transport: JarvisTransport = {

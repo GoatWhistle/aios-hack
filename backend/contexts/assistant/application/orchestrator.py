@@ -6,6 +6,7 @@ import time
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from backend.contexts.assistant.application.answer import marker_position
+from backend.contexts.assistant.application.chart_requests import chart_tool_preset, journal_tool_preset
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunStore
 from backend.contexts.assistant.infrastructure.docs_index import DocsIndex
 from backend.contexts.assistant.infrastructure.knowledge import Knowledge
@@ -15,11 +16,14 @@ from backend.contexts.assistant.domain.session import (
     SessionStore,
     check_question,
 )
+from backend.contexts.assistant.domain.errors import UpstreamError
 from backend.contexts.assistant.infrastructure.session_store import SessionDisk
 from backend.contexts.assistant.infrastructure.system_map import SystemMap
 from backend.contexts.assistant.application.orchestrator_compose import (
     call_tool,
     compose,
+    compose_recorded_journal_failure,
+    provider_failure_journal_reply,
     live_status,
 )
 from backend.contexts.assistant.application.orchestrator_events import (
@@ -69,6 +73,12 @@ def _contextual_tool_preset(
     question: str, console: ConsoleContext, session: Session | None = None
 ) -> tuple[tuple[str, Mapping[str, Any]], ...]:
     """Resolve clear contextual follow-ups using the active scene's data."""
+    journal = journal_tool_preset(question, console)
+    if journal:
+        return journal
+    chart = chart_tool_preset(question, console)
+    if chart:
+        return chart
     selected = console.selected_well
     if selected and _HERE_FOLLOW_UP.fullmatch(question):
         arguments: dict[str, Any] = {"well": selected}
@@ -175,6 +185,7 @@ class Orchestrator:
             },
             console.lang,
         )
+        scene_id = None
         try:
             for event in self._run(
                 session,
@@ -185,10 +196,12 @@ class Orchestrator:
                 wall_deadline=wall_deadline,
                 preset=_contextual_tool_preset(text, console, session),
             ):
+                if event.type == "scene":
+                    scene_id = event.body.get("scene_id")
                 self._record(session_id, event.as_dict(), console.lang)
                 yield event
         except Cancelled:
-            yield Event(
+            event = Event(
                 "error",
                 {
                     "code": "cancelled",
@@ -198,6 +211,17 @@ class Orchestrator:
                     ),
                 },
             )
+            if scene_id is not None:
+                event = Event("error", {**event.body, "scene_id": scene_id})
+            self._record(session_id, event.as_dict(), console.lang)
+            yield event
+        except (TimeoutError, UpstreamError) as error:
+            body = {"type": "error", "code": error.code if isinstance(error, UpstreamError) else "timeout",
+                    "message": str(error)}
+            if scene_id is not None:
+                body["scene_id"] = scene_id
+            self._record(session_id, body, console.lang)
+            raise
         finally:
             self._sessions.finish(session_id, generation)
 
@@ -319,6 +343,12 @@ class Orchestrator:
         messages = self._messages(session, question)
         specs = tool_specs()
         cards: list[Card] = []
+        # These sources are immutable during one ask. Repeated model calls
+        # receive the same result without inserting identical UI cards.
+        reusable = {"well_series", "well_snapshot", "decision_journal", "connectivity"}
+        completed: dict[tuple[str, str], tuple[Card, dict[str, Any]]] = {}
+        def request_key(name: str, arguments: Mapping[str, Any]) -> tuple[str, str]:
+            return name, json.dumps(dict(arguments), sort_keys=True, separators=(",", ":"))
         order = 0
         rounds = 0
         deltas: list[str] = []
@@ -328,6 +358,8 @@ class Orchestrator:
             order += 1
             card, result = call_tool(context, ToolCall(id=f"p{order}", name=name, args=arguments))
             cards.append(card)
+            if name in reusable and card.type != "error":
+                completed[request_key(name, arguments)] = (card, result)
             yield Event(
                 "card",
                 {
@@ -343,7 +375,8 @@ class Orchestrator:
                 ChatMessage(
                     role="user",
                     content=f"Tool {name} returned: "
-                    + json.dumps(result, ensure_ascii=False),
+                    + json.dumps(result, ensure_ascii=False)
+                    + "\nThis result is already displayed as a card. Reuse it; do not request the same arguments again.",
                 )
             )
         while True:
@@ -371,7 +404,25 @@ class Orchestrator:
                         calls.append(event)
                     elif isinstance(event, Done):
                         break
-            except Exception:
+            except Exception as error:
+                if self._sessions.is_cancelled(session.session_id, generation):
+                    raise Cancelled(session.session_id) from error
+                provider_timeout = isinstance(error, TimeoutError) or (
+                    isinstance(error, UpstreamError) and error.code == "provider-timeout"
+                )
+                provider_failure = isinstance(error, TimeoutError) or (
+                    isinstance(error, UpstreamError) and error.code != "cancelled"
+                )
+                reply = provider_failure_journal_reply(cards, console.lang, timed_out=provider_timeout) if provider_failure else None
+                if reply is not None:
+                    yield from compose_recorded_journal_failure(
+                        reply, self._store, console, session, scene_id, question,
+                        rounds, int((self._clock() - started) * 1000),
+                        tuple(card.type for card in cards),
+                        provider_status="timeout" if provider_timeout else "error",
+                        provider_error_code=error.code if isinstance(error, UpstreamError) else "timeout",
+                    )
+                    return
                 self._checkpoint(session, generation, started)
                 raise
             if not calls or final:
@@ -383,10 +434,18 @@ class Orchestrator:
             for call in calls:
                 self._checkpoint(session, generation, started)
                 yield Event("status", {"state": "tool", "tool": call.name})
+                prior = completed.get(request_key(call.name, call.args)) if call.name in reusable else None
+                if prior is not None:
+                    messages.append(ChatMessage(
+                        role="tool", content=json.dumps(prior[1], ensure_ascii=False), tool_call_id=call.id
+                    ))
+                    continue
                 order += 1
                 card, result = call_tool(context, call)
                 self._checkpoint(session, generation, started)
                 cards.append(card)
+                if call.name in reusable and card.type != "error":
+                    completed[request_key(call.name, call.args)] = (card, result)
                 yield Event(
                     "card",
                     {

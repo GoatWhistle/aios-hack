@@ -25,7 +25,12 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious,
     toggleConfirmVoice
   } = useJarvisVoice();
   const answer = scenes.scenes[scenes.activeIndex]?.answer ?? null;
-  const context = scenes.scenes[scenes.activeIndex]?.context ?? askContext;
+  const context = askContext;
+  const answeredContext = scenes.scenes[scenes.activeIndex]?.context;
+  const differentContext = answeredContext !== undefined && (
+    answeredContext.scenario !== context.scenario || answeredContext.run_id !== context.run_id ||
+    answeredContext.step !== context.step || answeredContext.selected_well !== context.selected_well
+  );
 
   return (
     <header className="jarvis-ribbon" aria-label={t('jarvis-screen.contextLabel')}>
@@ -43,7 +48,7 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious,
         <div>
           <dt>{t('jarvis-screen.contextStep')}</dt>
           <dd>
-            {context.date.length === 0 ? DASH : formatStepDate(lang, context.date)}
+            {context.step} · {context.date.length === 0 ? DASH : formatStepDate(lang, context.date)}
           </dd>
         </div>
         <div>
@@ -51,24 +56,18 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious,
           <dd>{context.selected_well ?? t('jarvis-screen.contextNoWell')}</dd>
         </div>
       </dl>
+      {differentContext && answeredContext !== undefined ? (
+        <p className="jarvis-ribbon-answer-context">
+          {t('jarvis-screen.contextAnswerLabel')} {answeredContext.scenario}
+          {answeredContext.run_id ? ` · ${answeredContext.run_id}` : ''}
+          {' · '}{t('jarvis-screen.contextWell')} {answeredContext.selected_well ?? t('jarvis-screen.contextNoWell')}
+          {' · '}{t('jarvis-screen.contextStep')} {answeredContext.step}
+        </p>
+      ) : null}
       <ul className="jarvis-ribbon-chips" aria-label={t('jarvis-screen.capabilitiesLabel')}>
         <li className="jarvis-ribbon-chip" data-on={capabilities.ok ? 'true' : 'false'}>
           {capabilities.ok ? t('jarvis-screen.chipLive') : t('jarvis-screen.chipOffline')}
         </li>
-        <li className="jarvis-ribbon-chip" data-on={capabilities.tts ? 'true' : 'false'}>
-          {t('jarvis-screen.chipTts')}
-        </li>
-        <li
-          className="jarvis-ribbon-chip"
-          data-on={capabilities.stt === 'none' ? 'false' : 'true'}
-        >
-          {t('jarvis-screen.chipStt')}
-        </li>
-        {capabilities.docs > 0 ? (
-          <li className="jarvis-ribbon-chip" data-on="true">
-            {t('jarvis-screen.chipDocs', { count: String(capabilities.docs) })}
-          </li>
-        ) : null}
       </ul>
       <div className="jarvis-ribbon-controls">
         <button
@@ -89,6 +88,9 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious,
             {t('jarvis-voice.speakAnswer')}
           </button>
         )}
+        <details className="jarvis-ribbon-settings">
+          <summary className="jarvis-ribbon-button">{t('jarvis-screen.settingsLabel')}</summary>
+          <div className="jarvis-ribbon-settings-body">
         <button
           type="button"
           className="jarvis-ribbon-button"
@@ -109,6 +111,8 @@ export const ContextRibbon = ({ speaking, onStop, onReadAll, canRestorePrevious,
         <button type="button" className="jarvis-ribbon-button" onClick={toggleLang}>
           {lang === 'ru' ? 'en' : 'ru'}
         </button>
+          </div>
+        </details>
       </div>
     </header>
   );

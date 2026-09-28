@@ -38,7 +38,7 @@ WELL_TOOLS: tuple[ToolDefinition, ...] = (
         schema=obj(
             {
                 "well": {"type": "string"},
-                "metric": {"type": "string", "enum": list(SERIES_METRICS)},
+                "metric": {"type": "string", "enum": list(SERIES_METRICS), "description": "If omitted, injection rate for an injector or liquid rate for a producer at the selected control step."},
                 "from_step": {"type": "integer", "minimum": 0, "maximum": MAX_SERIES_STEP},
                 "to_step": {"type": "integer", "minimum": 0, "maximum": MAX_SERIES_STEP},
                 "window": {
@@ -49,7 +49,7 @@ WELL_TOOLS: tuple[ToolDefinition, ...] = (
                     "description": "highlight interval [from, to] inside the series",
                 },
             },
-            ("well", "metric"),
+            ("well",),
         ),
         card_type="series",
     ),

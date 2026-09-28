@@ -1,7 +1,7 @@
 import { readStored, writeStored } from '@/shared/lib/storage/storage';
 import { parseEvent, parseEventLine, type JarvisEvent } from '@/jarvis/transport/events';
 import { parseSseChunk } from '@/jarvis/transport/sseTransport';
-import { emptyScenes, scenesReducer, selectSceneAt, type ScenesState } from '@/jarvis/model/scenes';
+import { emptyScenes, scenesReducer, selectSceneAt, settleRestoredScenes, type ScenesState } from '@/jarvis/model/scenes';
 
 export const SESSION_KEY = 'aios-jarvis-session-id';
 export const SESSIONS_URL = '/api/jarvis/sessions';
@@ -99,7 +99,7 @@ export const replayEvents = (
     (state, event) => scenesReducer(state, event),
     from
   );
-  return selectSceneAt(replayed, replayed.scenes.length - 1);
+  return selectSceneAt(settleRestoredScenes(replayed), replayed.scenes.length - 1);
 };
 
 export const fetchSessionRows = async (fetchImpl?: typeof fetch): Promise<SessionRow[]> => {

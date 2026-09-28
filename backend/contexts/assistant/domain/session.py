@@ -4,7 +4,9 @@ from backend.contexts.assistant.domain.errors import (
     SessionError,
 )
 
+import json
 import threading
+import re
 from dataclasses import dataclass, field
 from typing import Sequence
 
@@ -17,6 +19,7 @@ HISTORY_LIMIT = 6
 MAX_QUESTION_LENGTH = 600
 ANSWER_EXCERPT = 300
 SUMMARY_LIMIT = 1200
+MEMORY_PREFIX = "Recorded exchange excerpts; omissions marked …; not new evidence:\n"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,9 +31,11 @@ class Exchange:
 
     def as_text(self) -> str:
         cards = ", ".join(self.card_types) if self.card_types else "none"
-        lines = [f"Q: {self.question}", f"Cards: {cards}", f"A: {self.caption}"]
+        lines = [f"Q: {_memory_excerpt(self.question, MAX_QUESTION_LENGTH)}",
+                 f"Cards: {_memory_excerpt(cards, 180)}",
+                 f"A: {_memory_excerpt(self.caption, ANSWER_EXCERPT)}"]
         if self.answer:
-            lines.append(f"Detail: {self.answer[:ANSWER_EXCERPT]}")
+            lines.append(f"Detail: {_memory_excerpt(self.answer, ANSWER_EXCERPT)}")
         return "\n".join(lines)
 
 
@@ -71,6 +76,38 @@ class Session:
 
     def pending_summary(self) -> tuple[Exchange, ...]:
         return tuple(self.overflowed)
+
+    def compact_memory(self) -> None:
+        """Keep bounded verbatim excerpts, never ask a model to rewrite facts.
+
+        Full exchanges remain in the event archive; this is a prompt index, not
+        an exhaustive factual summary. Whole JSON records prevent joining the
+        ending of one observation to an unrelated later sentence.
+        """
+        if not self.overflowed:
+            return
+        records: list[str] = []
+        if self.summary_text.startswith(MEMORY_PREFIX):
+            records = self.summary_text[len(MEMORY_PREFIX):].splitlines()
+        elif self.summary_text:
+            records = [json.dumps({"legacy_summary": _memory_excerpt(self.summary_text, 800)}, ensure_ascii=False)]
+        for exchange in self.overflowed:
+            records.append(json.dumps({
+                "question": _memory_excerpt(exchange.question, 180),
+                "cards": _memory_excerpt(", ".join(exchange.card_types), 120),
+                "caption": _memory_excerpt(exchange.caption, 300),
+                "answer_excerpt": _memory_excerpt(exchange.answer, 250),
+            }, ensure_ascii=False))
+        retained: list[str] = []
+        remaining = SUMMARY_LIMIT - len(MEMORY_PREFIX)
+        for record in reversed(records):
+            cost = len(record) + (1 if retained else 0)
+            if cost > remaining:
+                break
+            retained.append(record)
+            remaining -= cost
+        self.summary_text = MEMORY_PREFIX + "\n".join(reversed(retained))
+        self.overflowed.clear()
 
     def absorb_summary(self, text: str) -> None:
         cleaned = text.strip()[:SUMMARY_LIMIT]
@@ -128,11 +165,21 @@ class SessionStore:
         if meta is None:
             return
         session.summary_text = meta.summary
+        # The archive watermark survives bounded event replay and unanswered
+        # requests. Exchange count is not the identity of the last scene.
+        session.scene_serial = max(session.scene_serial, int(getattr(meta, "scenes", 0)))
         try:
             events = self._disk.events(session.session_id)
         except Exception:
             return
-        for row in restore_exchanges(events):
+        restored_rows = restore_exchanges(events)
+        serials = [
+            int(match.group(1))
+            for event in events
+            if (match := re.fullmatch(r"s-(\d+)", str(event.get("scene_id", ""))))
+        ]
+        session.scene_serial = max(session.scene_serial, len(restored_rows), *serials)
+        for row in restored_rows:
             session.remember(
                 Exchange(
                     question=str(row["question"]),
@@ -141,7 +188,6 @@ class SessionStore:
                     answer=str(row["answer"]),
                 )
             )
-            session.scene_serial += 1
         session.overflowed.clear()
 
     def start(self, session_id: str, console: ConsoleContext) -> tuple[Session, int]:
@@ -222,3 +268,13 @@ def summary_request(exchanges: Sequence[Exchange]) -> str:
         "четырёх фраз, без чисел, которых нет в тексте, без инструментов. "
         "Верни только текст справки.\n\n" + "\n\n".join(lines)
     )
+
+
+def _memory_excerpt(text: str, limit: int) -> str:
+    if len(json.dumps(text, ensure_ascii=False)) - 2 <= limit:
+        return text
+    prefix = text[:limit - 1]
+    while len(json.dumps(prefix, ensure_ascii=False)) - 2 > limit - 1:
+        prefix = prefix[:-1]
+    boundary = max((index for index, char in enumerate(prefix) if char.isspace()), default=-1)
+    return (prefix[:boundary].rstrip() if boundary >= 0 else "") + "…"

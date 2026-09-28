@@ -24,7 +24,7 @@ export const useCloseBehaviour = (open: boolean, onClose: () => void): void => {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
         onClose();
       }
     };

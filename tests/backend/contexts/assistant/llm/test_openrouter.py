@@ -293,6 +293,60 @@ def test_total_stream_timeout_includes_silent_sse_wait() -> None:
         server_thread.join(timeout=2)
 
 
+def test_total_stream_timeout_includes_trickling_partial_sse_line() -> None:
+    stop = threading.Event()
+
+    class TrickleHandler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args: Any) -> None:
+            return
+
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            try:
+                tool_frame = json.dumps({"choices": [{"delta": {"tool_calls": [{
+                    "index": 0, "id": "partial-tool", "function": {"name": "well_snapshot", "arguments": '{"well":"62"}'}
+                }]}}]})
+                frame = f"data: {tool_frame}\n\n".encode()
+                self.wfile.write(f"{len(frame):X}\r\n".encode() + frame + b"\r\n")
+                # Each byte resets the socket inactivity timeout, but no
+                # complete SSE line exists until well past the total budget.
+                for _ in range(60):
+                    self.wfile.write(b"1\r\n \r\n")
+                    self.wfile.flush()
+                    if stop.wait(0.01):
+                        return
+                self.wfile.write(b"2\r\n\n\n\r\n0\r\n\r\n")
+                self.wfile.flush()
+            except OSError:
+                pass
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), TrickleHandler)
+    httpd.daemon_threads = True
+    server = threading.Thread(target=httpd.serve_forever, daemon=True)
+    server.start()
+    client = OpenRouterClient(api_key="local-test", base_url=f"http://127.0.0.1:{httpd.server_address[1]}", timeout=0.1)
+    started = time.monotonic()
+    events = []
+    try:
+        with pytest.raises(UpstreamError) as error:
+            for event in client.stream([ChatMessage(role="user", content="?")], [], "s"):
+                events.append(event)
+        assert error.value.code == "provider-timeout"
+        assert time.monotonic() - started < 0.4
+        assert not any(isinstance(event, ToolCall) for event in events)
+    finally:
+        stop.set()
+        httpd.shutdown()
+        httpd.server_close()
+        server.join(timeout=2)
+
+
 def test_broken_json_arguments_reported(server: tuple[str, _Recorder]) -> None:
     base_url, recorder = server
     recorder.lines = [

@@ -169,4 +169,30 @@ describe('warnings, suggestions, done and errors', () => {
     expect(state.status).toBeNull();
     expect(state.scenes).toEqual([]);
   });
+
+  it('replays a late old-scene error without cancelling the newer answer or clearing its progress', () => {
+    const first = opened();
+    const next = scenesReducer(first, {
+      type: 'scene', scene_id: 's-02', question: 'новый вопрос', context: first.scenes[0].context
+    });
+    const running = scenesReducer(next, { type: 'status', state: 'tool', tool: 'run_series' });
+    const state = scenesReducer(running, { type: 'error', scene_id: 's-01', code: 'cancelled', message: 'old ask cancelled' });
+    expect(state.scenes[0].error?.code).toBe('cancelled');
+    expect(state.scenes[0].done).toBe(true);
+    expect(activeScene(state)?.error).toBeNull();
+    expect(activeScene(state)?.done).toBe(false);
+    expect(state.status).toBe('tool');
+    expect(state.tool).toBe('run_series');
+    expect(scenesReducer(running, { type: 'error', scene_id: 'unknown', code: 'cancelled', message: '' })).toBe(running);
+  });
+
+  it('settles an identified current error even if the user is reading an older scene', () => {
+    const first = opened();
+    const next = scenesReducer(first, { type: 'scene', scene_id: 's-02', question: 'новый вопрос', context: first.scenes[0].context });
+    const historical = { ...next, activeIndex: 0 };
+    const state = scenesReducer(historical, { type: 'error', scene_id: 's-02', code: 'timeout', message: 'timeout' });
+    expect(state.scenes[1].error?.code).toBe('timeout');
+    expect(state.scenes[0].error).toBeNull();
+    expect(state.status).toBeNull();
+  });
 });

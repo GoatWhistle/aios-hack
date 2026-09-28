@@ -89,4 +89,4 @@ export type JarvisEvent =
   | { type: 'warning'; code: string; detail: string }
   | { type: 'suggestions'; items: { text: string }[] }
   | { type: 'done'; scene_id: string; tool_rounds: number; elapsed_ms: number }
-  | { type: 'error'; code: string; message: string };
+  | { type: 'error'; scene_id?: string; code: string; message: string };

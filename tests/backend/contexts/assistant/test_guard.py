@@ -10,6 +10,7 @@ from backend.contexts.assistant.domain.guard import (
     allowed_numbers,
     collect_numbers,
     guard_caption,
+    guard_answer,
     guard_context_references,
     guard_decision_claims,
     guard_plan_status,
@@ -30,6 +31,89 @@ PAYLOADS = [
     },
     {"total_npv_rub": 11873122324.910866, "share": 0.097844},
 ]
+
+
+def test_e2e_conclusion_preserves_grounded_run_id_and_artifact_url() -> None:
+    run_id = "jarvis-policy-20260926"
+    url = f"/api/jarvis/run-artifacts/{run_id}/manifest"
+    text = f"- **Прогон:** `{run_id}`\n- [Манифест прогона]( {url} )"
+    result, _ = guard_answer(text, [{"run_id": run_id, "conclusion_markdown": f"[manifest.json]({url})"}])
+    assert result.text == text
+    assert result.ok
+
+
+def test_numeric_removal_does_not_strip_the_same_digits_from_grounded_id() -> None:
+    run_id = "jarvis-policy-20260926"
+    text = f"Прогон `{run_id}`. ЧДД: 20260926 руб."
+    result, _ = guard_answer(text, [{"run_id": run_id}])
+    assert run_id in result.text
+    assert "ЧДД: 20260926" not in result.text
+    assert not result.ok
+
+
+def test_grounded_artifact_query_is_preserved_but_unsupported_measurement_is_not() -> None:
+    url = "/api/jarvis/run-artifacts/run-20260926/manifest?version=987654321"
+    text = f"[Манифест]({url})\nЧДД: 987654321 руб."
+    result, _ = guard_answer(text, [{"conclusion_markdown": f"[manifest]({url})"}])
+    assert url in result.text
+    assert "ЧДД: 987654321" not in result.text
+
+
+def test_artifact_guard_removes_unretrieved_url_without_damaging_grounded_link() -> None:
+    from backend.contexts.assistant.domain.guard import guard_artifact_references
+
+    known = "/api/jarvis/run-artifacts/run-20260926/manifest"
+    unknown = "/api/jarvis/run-artifacts/run-20260926/physics"
+    result = guard_artifact_references(
+        f"[Манифест]({known})\n[Физика]({unknown})", [{"conclusion_markdown": f"[manifest]({known})"}], "ru"
+    )
+    assert known in result.text
+    assert unknown not in result.text
+    assert "[Физика](" not in result.text
+    assert not result.ok
+
+
+def test_markdown_run_label_does_not_authorize_an_invented_run() -> None:
+    result = guard_run_references("- **Прогон:** `made-up-run-20260928`", [{"run_id": "actual-run-20260928"}], "ru")
+    assert not result.ok
+    assert "made-up-run" not in result.text
+
+
+def test_no_conclusion_does_not_authorize_download_claim() -> None:
+    from backend.contexts.assistant.domain.guard import guard_delivery_claims
+
+    text = "Заключение нельзя скачать."
+    result = guard_delivery_claims(text, [{"has_submission": False}], "ru")
+    assert result.text == text and result.ok
+
+
+def test_manifest_endpoint_is_not_labeled_as_downloadable_conclusion() -> None:
+    from backend.contexts.assistant.domain.guard import guard_artifact_references, guard_delivery_claims
+
+    url = "/api/jarvis/run-artifacts/jarvis-policy-20260926/manifest"
+    payload = [{"conclusion_markdown": f"# Заключение\n[manifest.json]({url})"}]
+    text = f"### Скачать инженерное заключение и материалы\n\n- [Инженерное заключение и источники]({url})"
+    sources = guard_artifact_references(text, payload, "ru")
+    result = guard_delivery_claims(sources.text, payload, "ru")
+    assert f"[Манифест прогона]({url})" in result.text
+    assert "[Инженерное заключение" not in result.text
+    assert "можно скачать на карточке" in result.text
+    assert "### Материалы прогона" in result.text
+    assert not sources.ok
+
+
+@pytest.mark.parametrize("text", [
+    "Пакет сдачи не собран, отдельного файла для скачивания нет.",
+    "**Пакет сдачи:** отсутствует, поэтому единого файла для скачивания нет.",
+    "Заключение нельзя скачать.",
+])
+def test_conclusion_download_does_not_depend_on_submission_bundle(text: str) -> None:
+    from backend.contexts.assistant.domain.guard import guard_delivery_claims
+
+    result = guard_delivery_claims(text, [{"conclusion_markdown": "# Заключение", "has_submission": False}], "ru")
+    assert "можно скачать на карточке" in result.text
+    assert "не является пакетом сдачи" in result.text
+    assert not result.ok
 
 
 def test_guard_metric_contract_covers_all_field_series_and_ranking_metrics() -> None:

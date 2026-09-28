@@ -222,10 +222,13 @@ export const parseEvent = (value: unknown): JarvisEvent | null => {
     };
   }
   if (value.type === 'error') {
-    if (!str(value.code)) {
+    if (!str(value.code) || (value.scene_id !== undefined && !str(value.scene_id))) {
       return null;
     }
-    return { type: 'error', code: value.code, message: str(value.message) ? value.message : '' };
+    return {
+      type: 'error', code: value.code, message: str(value.message) ? value.message : '',
+      ...(str(value.scene_id) ? { scene_id: value.scene_id } : {})
+    };
   }
   return null;
 };

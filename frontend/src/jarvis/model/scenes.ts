@@ -56,6 +56,20 @@ export const emptyScenes: ScenesState = {
   seq: 0
 };
 
+/** A snapshot cannot resume a stream; retain its evidence and identify unfinished answers. */
+export const settleRestoredScenes = (state: ScenesState, liveSceneId: string | null = null): ScenesState => ({
+  ...state,
+  status: liveSceneId === null ? null : state.status,
+  tool: liveSceneId === null ? null : state.tool,
+  scenes: state.scenes.map((scene) => scene.done || scene.sourceId === liveSceneId || scene.id === liveSceneId
+    ? scene
+    : {
+      ...scene,
+      done: true,
+      error: scene.error ?? { code: 'interrupted', message: 'restored snapshot has no terminal event' }
+    })
+});
+
 export const activeScene = (state: ScenesState): Scene | null =>
   state.activeIndex < 0 ? null : (state.scenes[state.activeIndex] ?? null);
 
@@ -190,11 +204,26 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
     }));
   }
   if (event.type === 'error') {
-    const target = activeScene(state);
+    let target = activeScene(state);
+    if (event.scene_id !== undefined) {
+      target = null;
+      for (let index = state.scenes.length - 1; index >= 0; index -= 1) {
+        const scene = state.scenes[index];
+        if (scene.sourceId === event.scene_id || scene.id === event.scene_id) {
+          target = scene;
+          break;
+        }
+      }
+      if (target === null) return state;
+    }
     if (target === null) {
       return { ...state, status: null, tool: null };
     }
-    return replaceScene({ ...state, status: null, tool: null }, target.id, (scene) => ({
+    // A refreshed briefing can be appended after the live user request.
+    const latestRequest = [...state.scenes].reverse().find((scene) => scene.sourceId !== 'briefing')
+      ?? state.scenes[state.scenes.length - 1];
+    const settleProgress = event.scene_id === undefined || target === latestRequest;
+    return replaceScene(settleProgress ? { ...state, status: null, tool: null } : state, target.id, (scene) => ({
       ...scene,
       error: { code: event.code, message: event.message },
       done: true

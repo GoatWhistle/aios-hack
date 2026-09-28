@@ -32,8 +32,14 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
     if (node === null) {
       return;
     }
-    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    node.scrollLeft += delta;
+    if (event.ctrlKey || event.metaKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    const maximum = Math.max(0, node.scrollWidth - node.clientWidth);
+    const unit = event.deltaMode === 1 ? 32 : event.deltaMode === 2 ? node.clientWidth : 1;
+    const next = Math.max(0, Math.min(maximum, node.scrollLeft + event.deltaY * unit));
+    if (next !== node.scrollLeft) {
+      event.preventDefault();
+      node.scrollLeft = next;
+    }
   }, []);
 
   useEffect(() => {
@@ -41,7 +47,7 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
     if (node === null) {
       return;
     }
-    node.addEventListener('wheel', onWheel, { passive: true });
+    node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 

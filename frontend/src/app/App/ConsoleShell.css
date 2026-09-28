@@ -71,7 +71,7 @@
 
 .console-scrim {
   position: fixed;
-  inset: var(--h-header) 0 var(--h-player-opaque) 0;
+  inset: var(--h-header) 0 var(--h-player-opaque) var(--size-nav);
   z-index: 0;
   background: var(--color-backdrop);
   pointer-events: auto;

@@ -28,15 +28,25 @@ export const useJarvisBriefing = ({
   setLoading
 }: BriefingOptions): void => {
   const requestedKey = useRef<string | null>(null);
+  const pendingKey = useRef<string | null>(null);
   const requestSequence = useRef(0);
 
   useEffect(() => {
     if (!open || (sceneCount > 0 && !hasBriefing)) {
+      // A question may start while initial session/briefing retrieval is pending.
+      // Its late result must never pushEvents and abort that live request.
+      requestSequence.current += 1;
+      if (pendingKey.current !== null && requestedKey.current === pendingKey.current) {
+        requestedKey.current = null;
+      }
+      pendingKey.current = null;
+      setLoading(false);
       return;
     }
     const key = `${sessionId}|${lang}|${scenario}|${step}`;
     if (requestedKey.current === key) return;
     requestedKey.current = key;
+    pendingKey.current = key;
     const requestId = ++requestSequence.current;
     setLoading(true);
     const start = async () => {
@@ -60,7 +70,10 @@ export const useJarvisBriefing = ({
       }
     };
     void start().finally(() => {
-      if (requestId === requestSequence.current) setLoading(false);
+      if (requestId === requestSequence.current) {
+        pendingKey.current = null;
+        setLoading(false);
+      }
     });
   }, [open, sessionId, sceneCount, hasBriefing, lang, scenario, step, pushEvents, mergeEvents, setLoading]);
 };

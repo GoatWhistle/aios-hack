@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { WORKSPACES, WORKSPACE_VIEWS, type Workspace, type WorkspaceView } from '@/shared/router/routes';
-import { isEditableTarget } from '@/shared/lib/keyboard/target';
+import { hasOpenModalDialog, isInteractiveTarget } from '@/shared/lib/keyboard/target';
 
 export interface WorkspaceRoute {
   workspace: Workspace;
@@ -72,7 +72,7 @@ export const useWorkspaceRouting = ({ workspace, view, setRoute }: RoutingOption
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (isEditableTarget(event.target)) {
+      if (hasOpenModalDialog() || isInteractiveTarget(event.target)) {
         return;
       }
       const position = Number(event.key);

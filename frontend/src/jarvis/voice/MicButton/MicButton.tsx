@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { isEditableTarget } from '@/shared/lib/keyboard/target';
+import { isInteractiveTarget } from '@/shared/lib/keyboard/target';
 import { latinKeyOf } from '@/shared/lib/keyboard/layout';
 import { useJarvisSessionContext, useJarvisSphere, useJarvisVoice } from '@/jarvis/provider/contexts';
 import { useMicLevel } from '@/jarvis/voice/useMicLevel';
@@ -25,6 +25,7 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
     noteVoiceAsked
   } = useJarvisVoice();
   const { setAudioLevel } = useJarvisSphere();
+  const spaceHeld = useRef(false);
 
   const recorderFailure = useCallback((code: string) => {
     setSttError(code);
@@ -103,11 +104,13 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+        isInteractiveTarget(event.target)) {
         return;
       }
       if (event.code === 'Space' && !event.repeat) {
         event.preventDefault();
+        spaceHeld.current = true;
         begin();
         return;
       }
@@ -121,10 +124,11 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
       }
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || isEditableTarget(event.target)) {
+      if (event.code !== 'Space' || !spaceHeld.current) {
         return;
       }
       event.preventDefault();
+      spaceHeld.current = false;
       end();
     };
     window.addEventListener('keydown', onKeyDown);

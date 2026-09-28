@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { useJarvisSessionContext, useJarvisSphere, useJarvisVoice } from '@/jarvis/provider/contexts';
@@ -18,14 +18,14 @@ import { STAGE_SLOT_ID } from '@/jarvis/scene/lib/stageSlot';
 import { activeScene } from '@/jarvis/model/scenes';
 import { useFocusTrap } from '@/jarvis/provider/useFocusTrap';
 import { useVoiceOutput } from '@/jarvis/voice/useVoiceOutput';
+import { isEditableTarget } from '@/shared/lib/keyboard/target';
 import './JarvisScreen.css';
-
-const WHEEL_STEP_PX = 24;
 
 export const JarvisScreen = () => {
   const { lang, t } = useI18n();
   const {
     scenes,
+    sessionId,
     askContext,
     askQuestion,
     cancel,
@@ -36,7 +36,9 @@ export const JarvisScreen = () => {
     canRestorePrevious,
     showCompanion,
     capabilities,
-    briefingLoading
+    briefingLoading,
+    questionDraft,
+    setQuestionDraft
   } = useJarvisSessionContext();
   const {
     speakEnabled,
@@ -46,9 +48,14 @@ export const JarvisScreen = () => {
   } = useJarvisVoice();
   const { setAudioLevel } = useJarvisSphere();
   const ref = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const open = transition.phase === 'open';
   const scene = activeScene(scenes);
+  const sceneId = scene?.id ?? null;
+  useLayoutEffect(() => {
+    if (bodyRef.current !== null) bodyRef.current.scrollTop = 0;
+  }, [sceneId]);
   const history = useMemo(
     () => scenes.scenes.map((entry) => entry.question).filter((text) => text.length > 0),
     [scenes.scenes]
@@ -76,36 +83,16 @@ export const JarvisScreen = () => {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === '/' && !(event.target instanceof HTMLTextAreaElement)) {
+      if (event.ctrlKey || event.metaKey || event.altKey || isEditableTarget(event.target)) return;
+      if (event.key === '/') {
         event.preventDefault();
         setFocusSignal((value) => value + 1);
         return;
       }
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        if (event.target instanceof HTMLTextAreaElement) {
-          return;
-        }
-        event.preventDefault();
-        selectScene(scenes.activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
-      }
-    };
-    const onWheel = (event: WheelEvent) => {
-      if (event.target instanceof Element && event.target.closest('.jarvis-card-body')) {
-        return;
-      }
-      if (event.target instanceof Element && event.target.closest('.jarvis-rail')) {
-        return;
-      }
-      if (Math.abs(event.deltaY) < WHEEL_STEP_PX) {
-        return;
-      }
-      selectScene(scenes.activeIndex + (event.deltaY > 0 ? 1 : -1));
     };
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('wheel', onWheel, { passive: true });
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('wheel', onWheel);
     };
   }, [open, selectScene, scenes.activeIndex]);
 
@@ -134,14 +121,14 @@ export const JarvisScreen = () => {
         canRestorePrevious={canRestorePrevious}
         onRestorePrevious={() => applyAction({ restore_previous: true })}
       />
-      <div className="jarvis-screen-body">
-        <div className="jarvis-screen-orbit">
+      <div className="jarvis-screen-body" ref={bodyRef}>
+        <div className="jarvis-screen-identity" aria-hidden="true">
           <span className="jarvis-screen-slot" id={STAGE_SLOT_ID} aria-hidden="true" />
-          <LiveTranscript />
           <SceneStack scenes={scenes.scenes} activeIndex={scenes.activeIndex} />
-          {scene === null ? null : <Orbit cards={scene.cards} onOpen={onOpen} briefingLoading={scene.question === '' && (scenes.status !== null || briefingLoading)} />}
         </div>
+        <div className="jarvis-screen-workspace">
         <div className="jarvis-screen-say">
+          {scene?.question ? <h2 className="jarvis-screen-question">{scene.question}</h2> : null}
           {scene === null ? (
             <div className="jarvis-screen-empty">
               <p className="jarvis-screen-empty-title">{t('jarvis-screen.emptyTitle')}</p>
@@ -156,7 +143,10 @@ export const JarvisScreen = () => {
             micOpen={micOpen}
             scene={scene}
           />
-          <AnswerPanel scene={scene} />
+          <LiveTranscript />
+        </div>
+        {scene === null ? null : <Orbit cards={scene.cards} onOpen={onOpen} briefingLoading={scene.question === '' && (scenes.status !== null || briefingLoading)} />}
+        <AnswerPanel scene={scene} />
         </div>
       </div>
       <footer className="jarvis-screen-foot">
@@ -165,7 +155,7 @@ export const JarvisScreen = () => {
           activeIndex={scenes.activeIndex}
           onSelect={selectScene}
         />
-        <Suggestions items={scenes.suggestions} onPick={askQuestion} />
+        {scenes.status === null ? <Suggestions items={scenes.suggestions} onPick={askQuestion} /> : null}
         <WalkthroughControls
           scenes={scenes}
           context={askContext}
@@ -175,7 +165,7 @@ export const JarvisScreen = () => {
           applyAction={applyAction}
           cancel={cancel}
         />
-        <InputDock onAsk={askQuestion} focusSignal={focusSignal} history={history} />
+        <InputDock onAsk={askQuestion} focusSignal={focusSignal} history={history} sessionId={sessionId} busy={scenes.status !== null} onCancel={cancel} draft={questionDraft} onDraftChange={setQuestionDraft} />
       </footer>
     </div>
   );

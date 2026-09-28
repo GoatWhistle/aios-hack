@@ -30,6 +30,10 @@ describe('the well card floats over the scene instead of squeezing it', () => {
 describe('the dimmed backdrop leaves the transport usable', () => {
   const shell = readFileSync(APP_SHELL_CSS, 'utf-8');
 
+  it('leaves the navigation and Jarvis launcher outside the dismissing backdrop', () => {
+    expect(blockOf(shell, '.console-scrim')).toMatch(/inset:\s*var\(--h-header\)\s+0\s+var\(--h-player-opaque\)\s+var\(--size-nav\)/);
+  });
+
   it('stops above the player instead of covering it', () => {
     const scrim = blockOf(shell, '.console-scrim');
     expect(scrim).toMatch(/inset:\s*var\(--h-header\)[^;]*var\(--h-player-opaque\)/);

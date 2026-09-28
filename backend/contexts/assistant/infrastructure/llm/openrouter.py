@@ -7,6 +7,7 @@ from backend.contexts.assistant.domain.errors import (
 import json
 import socket
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -292,6 +293,18 @@ class OpenRouterClient:
     ) -> Iterator[ChatEvent]:
         deadline = time.monotonic() + self._timeout
         response = self._open(self._body(messages, tools, system), cancellation, deadline)
+        deadline_expired = threading.Event()
+
+        def expire_stream() -> None:
+            # Socket inactivity timeouts reset whenever a byte arrives. A
+            # partial SSE line can therefore hold readline past the wall
+            # budget even though _response_lines sets the socket timeout.
+            deadline_expired.set()
+            _abort_response(response)
+
+        watchdog = threading.Timer(max(0.0, deadline - time.monotonic()), expire_stream)
+        watchdog.daemon = True
+        watchdog.start()
         unregister = (
             cancellation.register(lambda: _abort_response(response))
             if cancellation is not None
@@ -329,6 +342,8 @@ class OpenRouterClient:
                         reason = choice.get("finish_reason")
                         if isinstance(reason, str) and reason:
                             stop = reason
+            if deadline_expired.is_set():
+                raise TimeoutError("provider stream exceeded its total time budget")
             for call in buffer.drain():
                 yield call
             yield Done(stop=stop, usage=usage)
@@ -339,9 +354,15 @@ class OpenRouterClient:
                 f"{self.provider} did not respond within {self._timeout:g} seconds",
                 code="provider-timeout",
             ) from error
-        except Exception:
+        except Exception as error:
             if cancellation is not None and cancellation.cancelled:
                 raise UpstreamError("request cancelled", code="cancelled")
+            if deadline_expired.is_set():
+                raise UpstreamError(
+                    f"{self.provider} did not respond within {self._timeout:g} seconds",
+                    code="provider-timeout",
+                ) from error
             raise
         finally:
+            watchdog.cancel()
             unregister()

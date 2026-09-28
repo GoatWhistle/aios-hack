@@ -56,6 +56,11 @@ describe('event validators accept every documented event', () => {
     );
     expect(parseEvent({ type: 'error', code: 'timeout', message: 'долго' })?.type).toBe('error');
   });
+
+  it('preserves the scene id on an archived terminal error', () => {
+    expect(parseEvent({ type: 'error', scene_id: 'old-ask', code: 'cancelled', message: 'cancelled' }))
+      .toEqual({ type: 'error', scene_id: 'old-ask', code: 'cancelled', message: 'cancelled' });
+  });
 });
 
 describe('event validators reject rubbish instead of trusting it', () => {

@@ -40,7 +40,7 @@
 - [Проверка связности](out/jarvis-evidence-20260926/runs/jarvis-policy-20260926/evidence-integrity.json).
 - [Хеши входов и образа](out/jarvis-evidence-20260926/source-inventory.json).
 
-В каждом прогоне сохранены расписание, исходные условия, `opm/runs/<id>/flow.log`, бинарные результаты OPM, `observation/<schedule_hash>/response.json`, динамический отчёт и `economics/npv-table.json`. Все проверки соответствия расписания, отклика и экономики прошли: `failed_identities=[]`.
+В каждом прогоне сохранены расписание, исходные условия, `opm/runs/<id>/flow.log`, бинарные результаты OPM, `observation/<schedule_hash>/response.json`, динамический отчёт и `<run>/economics/npv-table.json`. Все проверки соответствия расписания, отклика и экономики прошли: `failed_identities=[]`.
 
 Хеш расписания повтора: `b534b867eb7c4f05d766b75bee6bb694c61ab1dc2b3eaaa271d9bddc35410c28`.
 

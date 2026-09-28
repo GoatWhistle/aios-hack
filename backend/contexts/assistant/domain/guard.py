@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlsplit
 from dataclasses import dataclass
 from datetime import date, datetime
 from math import floor, log10
@@ -229,7 +230,7 @@ _RUN_ID_FIELDS = frozenset({
     "run_a", "run_b",
 })
 _RUN_REFERENCE_PATTERN = re.compile(
-    r"\b(?:run(?:[_ -]id)?|прогон(?:а|у|е|ом)?)\s*(?:[:=#]\s*)?`?"
+    r"\b(?:run(?:[_ -]id)?|прогон(?:а|у|е|ом)?)\s*(?:[*_]+)?\s*(?:[:=#]\s*)?(?:[*_]+)?\s*`?"
     r"([A-Za-zА-Яа-я](?=[\w-]*-|[\w-]*\d{4})[\w-]*)",
     re.IGNORECASE,
 )
@@ -496,6 +497,162 @@ def _known_run_ids(evidence: Sequence[Any]) -> set[str]:
     return found
 
 
+_ARTIFACT_URL = re.compile(r"/api/jarvis/run-artifacts/[^\s<>`\]\)\"']+")
+_ARTIFACT_LABELS = {
+    "manifest": ("Манифест прогона", "Run manifest"),
+    "validation": ("Результат проверки", "Validation result"),
+    "constraints": ("Отчёт по ограничениям", "Constraints report"),
+    "physics": ("Отчёт физических проверок", "Physics report"),
+    "economics": ("Экономический результат", "Economics result"),
+    "npv-table": ("Таблица ЧДД", "NPV table"),
+    "submission": ("Заявленный ЧДД пакета сдачи", "Submission claimed NPV"),
+}
+
+
+def _evidence_strings(value: Any) -> Iterable[str]:
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, Mapping):
+        for item in value.values():
+            yield from _evidence_strings(item)
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            yield from _evidence_strings(item)
+
+
+def _known_artifact_urls(evidence: Sequence[Any]) -> set[str]:
+    return {
+        match.group(0)
+        for item in evidence
+        for string in _evidence_strings(item)
+        for match in _ARTIFACT_URL.finditer(string)
+    }
+
+
+def guard_artifact_references(text: str, evidence: Sequence[Any], lang: str = "en") -> GuardResult:
+    """Only offer run artifact endpoints present in retrieved evidence."""
+    known = _known_artifact_urls(evidence)
+    dropped: list[str] = []
+
+    warning = "ссылка не подтверждена" if lang == "ru" else "link not confirmed"
+
+    def replace_link(match: re.Match[str]) -> str:
+        url = match.group("url")
+        if url in known:
+            # Source existence does not authorize a model-generated file type:
+            # this endpoint serves a manifest, not a downloadable conclusion.
+            artifact = urlsplit(url).path.rstrip("/").rsplit("/", 1)[-1]
+            names = _ARTIFACT_LABELS.get(artifact, ("Артефакт прогона", "Run artifact"))
+            label = names[0 if lang == "ru" else 1]
+            if re.search(r"заключени\w*|conclusion", match.group("label"), re.IGNORECASE):
+                dropped.append(match.group("label"))
+            return f"[{label}]({url})"
+        dropped.append(url)
+        return f"{match.group('label')} ({warning})"
+
+    text = re.sub(
+        r"\[(?P<label>[^\]\n]+)\]\([ \t]*(?P<url>/api/jarvis/run-artifacts/[^\s)]+)[ \t]*\)",
+        replace_link, text,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        url = match.group(0)
+        if url in known:
+            return url
+        dropped.append(url)
+        return warning
+
+    result = _ARTIFACT_URL.sub(replace, text)
+    return GuardResult(text=result, ok=not dropped, dropped=tuple(dropped))
+
+
+_NO_DOWNLOAD = re.compile(
+    r"(?:файл\w*\s+для\s+скачивани\w*\s+(?:нет|отсутств\w*)|"
+    r"(?:нет|отсутств\w*)\s+(?:(?:един\w*|отдельн\w*)\s+)?файл\w*\s+для\s+скачивани\w*|"
+    r"заключени\w*.{0,40}(?:нельзя|невозможно|не\s+мож\w*)\s+скач\w*|"
+    r"no\s+(?:(?:single|separate)\s+)?(?:downloadable\s+file|file\s+(?:for|to)\s+download)|"
+    r"conclusion.{0,40}(?:cannot|can't|not\s+available\s+to)\s+(?:be\s+)?download\w*)",
+    re.IGNORECASE,
+)
+
+
+def guard_delivery_claims(text: str, evidence: Sequence[Any], lang: str = "en") -> GuardResult:
+    """A downloadable conclusion is independent of the submitted schedule bundle."""
+    available = any(
+        isinstance(item, Mapping) and isinstance(item.get("conclusion_markdown"), str)
+        and item["conclusion_markdown"].strip()
+        for item in evidence
+    )
+    if not available:
+        return GuardResult(text=text, ok=True, dropped=())
+    dropped: list[str] = []
+    replacement = (
+        "Инженерное заключение можно скачать на карточке. Оно не является пакетом сдачи."
+        if lang == "ru" else
+        "The engineering conclusion can be downloaded from its card. It is not the submission package."
+    )
+    def replace_heading(match: re.Match[str]) -> str:
+        dropped.append(match.group(0))
+        title = "Материалы прогона" if lang == "ru" else "Run materials"
+        return f"{match.group(1)} {title}\n\n{replacement}"
+
+    text = re.sub(
+        r"^(#{1,6})[ \t]+[^\n]*(?:скач\w*[^\n]*заключени\w*|download[^\n]*conclusion)[^\n]*$",
+        replace_heading, text, flags=re.IGNORECASE | re.MULTILINE,
+    )
+    parts = re.split(r"(?<=[.!?])\s+|\n", text)
+    for index, part in enumerate(parts):
+        if _NO_DOWNLOAD.search(part):
+            dropped.append(part)
+            parts[index] = replacement
+    if not dropped:
+        return GuardResult(text=text, ok=True, dropped=())
+    return GuardResult(text="\n".join(parts), ok=False, dropped=tuple(dropped))
+
+
+_NO_CHART = re.compile(
+    r"(?:график\w*|(?:временн\w*\s+)?ряд)\s+(?:данных\s+)?(?:нет|отсутств\w*|не\s+(?:записан\w*|построен\w*|доступ\w*))|"
+    r"нет\s+(?:графика|временного\s+ряда)|"
+    r"(?:chart|time\s+series)\s+(?:(?:is|was)\s+)?(?:absent|unavailable|not\s+(?:recorded|available|shown))",
+    re.IGNORECASE,
+)
+_ONLY_CHART_POINT = re.compile(
+    r"(?:записан\w*\s+)?только\s+(?:одн\w*\s+)?точк\w*|only\s+(?:a\s+single|one)\s+(?:data\s+)?point",
+    re.IGNORECASE,
+)
+_CHART_SUBJECT = re.compile(r"график\w*|временн\w*\s+ряд|chart|time\s+series", re.IGNORECASE)
+
+
+def guard_chart_availability(text: str, evidence: Sequence[Any], lang: str = "en") -> GuardResult:
+    charts = [
+        item["run_series_info"] for item in evidence
+        if isinstance(item, Mapping) and isinstance(item.get("run_series_info"), Mapping)
+        and item["run_series_info"].get("available") is True
+    ]
+    if not charts:
+        return GuardResult(text=text, ok=True, dropped=())
+    multiple = any(info.get("has_multiple_steps") is True for info in charts)
+    replacement = (
+        "График прогона показан на карточке."
+        if lang == "ru" else
+        "The run chart is shown on the card."
+    )
+    if multiple:
+        replacement += (
+            " В нём записан временной ряд нескольких шагов."
+            if lang == "ru" else " It contains a recorded time series across multiple steps."
+        )
+    parts = re.split(r"(?<=[.!?])\s+|\n", text)
+    dropped: list[str] = []
+    for index, part in enumerate(parts):
+        if _NO_CHART.search(part) or (multiple and _CHART_SUBJECT.search(part) and _ONLY_CHART_POINT.search(part)):
+            dropped.append(part)
+            parts[index] = replacement
+    if not dropped:
+        return GuardResult(text=text, ok=True, dropped=())
+    return GuardResult(text="\n".join(parts), ok=False, dropped=tuple(dropped))
+
+
 def guard_run_references(
     text: str, evidence: Sequence[Any], lang: str = "en"
 ) -> GuardResult:
@@ -598,7 +755,7 @@ def _known_date_keys(evidence: Sequence[Any]) -> set[str]:
         if isinstance(value, Mapping):
             for key, item in value.items():
                 if str(key) in {
-                    "date", "dates", "known_dates", "date_from", "date_to", "as_of",
+                    "date", "dates", "known_dates", "date_from", "date_to", "from_date", "to_date", "as_of",
                     "created_at", "updated_at", "timestamp",
                 }:
                     candidates = item if isinstance(item, (list, tuple, set)) else (item,)
@@ -925,13 +1082,27 @@ def _grounded_formula_spans(text: str, evidence: Sequence[Any]) -> tuple[tuple[i
 def unsupported_numbers(
     text: str, allowed: Iterable[float], unit_evidence: Sequence[Any] = ()
 ) -> list[str]:
+    return [text[start:end] for start, end in _unsupported_number_spans(text, allowed, unit_evidence)]
+
+
+def _unsupported_number_spans(
+    text: str, allowed: Iterable[float], unit_evidence: Sequence[Any] = ()
+) -> list[tuple[int, int]]:
     allowed_values = list(allowed)
     masked = _masked(text)
     masked = _RUN_REFERENCE_PATTERN.sub(
         lambda match: "#" * len(match.group(0)), masked
     )
+    # Identifiers are references, not measurements. Markdown labels need not
+    # match the prose run-reference pattern; preserve only exact retrieved IDs.
+    for run_id in _known_run_ids(unit_evidence):
+        pattern = re.compile(r"(?<![\w-])" + re.escape(run_id) + r"(?![\w-])")
+        masked = pattern.sub(lambda match: "#" * len(match.group(0)), masked)
+    for url in _known_artifact_urls(unit_evidence):
+        for match in re.finditer(re.escape(url) + r"(?![^\s<>`\]\)\"'])", text):
+            masked = masked[:match.start()] + "#" * len(match.group(0)) + masked[match.end():]
     formula_spans = _grounded_formula_spans(text, unit_evidence)
-    unsupported: list[str] = []
+    unsupported: list[tuple[int, int]] = []
     matches = list(NUMBER_PATTERN.finditer(masked))
     for index, match in enumerate(matches):
         if any(start <= match.start() < end for start, end in formula_spans):
@@ -961,15 +1132,15 @@ def unsupported_numbers(
             and metric is None
             and not _matches(value, unit_values)
         ):
-            unsupported.append(raw)
+            unsupported.append((match.start(), match.end()))
     return unsupported
 
 
-def _strip(text: str, raw: str) -> str:
-    stripped = text.replace(raw, "", 1)
-    stripped = re.sub(r"\s{2,}", " ", stripped)
-    stripped = re.sub(r"\s+([,.;:!?])", r"\1", stripped)
-    return stripped.strip()
+def _remove_number_spans(text: str, spans: Sequence[tuple[int, int]]) -> str:
+    for start, end in reversed(spans):
+        text = text[:start] + text[end:]
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return re.sub(r"[ \t]+([,.;:!?])", r"\1", text)
 
 
 def allowed_numbers(
@@ -987,12 +1158,11 @@ def guard_caption(
     text: str, tool_payloads: Sequence[Any], evidence: Sequence[Any] = ()
 ) -> GuardResult:
     allowed = allowed_numbers(tool_payloads, evidence)
-    unsupported = unsupported_numbers(text, allowed, (*tool_payloads, *evidence))
+    spans = _unsupported_number_spans(text, allowed, (*tool_payloads, *evidence))
+    unsupported = [text[start:end] for start, end in spans]
     if not unsupported:
         return GuardResult(text=text.strip(), ok=True, dropped=())
-    cleaned = text
-    for raw in unsupported:
-        cleaned = _strip(cleaned, raw)
+    cleaned = _remove_number_spans(text, spans).strip()
     return GuardResult(text=cleaned, ok=False, dropped=tuple(unsupported))
 
 
@@ -1046,13 +1216,21 @@ def guard_answer(
 ) -> tuple[GuardResult, CodeResult]:
     code = guard_code(text, code_sources)
     allowed = allowed_numbers(tool_payloads, evidence)
-    segments = _outside_code(code.text)
     unsupported: list[str] = []
-    for segment in segments:
-        unsupported.extend(unsupported_numbers(segment, allowed, (*tool_payloads, *evidence)))
+    pieces: list[str] = []
+    position = 0
+    for match in (*FENCE_PATTERN.finditer(code.text), None):
+        end = match.start() if match is not None else len(code.text)
+        segment = code.text[position:end]
+        spans = _unsupported_number_spans(segment, allowed, (*tool_payloads, *evidence))
+        unsupported.extend(segment[start:stop] for start, stop in spans)
+        pieces.append(_remove_number_spans(segment, spans) if spans else segment)
+        if match is not None:
+            pieces.append(match.group(0))
+            position = match.end()
     if not unsupported:
         return GuardResult(text=code.text.strip(), ok=True, dropped=()), code
-    cleaned = _replace_outside_code(code.text, unsupported)
+    cleaned = re.sub(r"\n{3,}", "\n\n", "".join(pieces)).strip()
     return (
         GuardResult(text=cleaned, ok=False, dropped=tuple(unsupported)),
         code,
@@ -1161,37 +1339,3 @@ def guard_decision_claims(text: str, tool_payloads: Sequence[Any], lang: str = "
             else "The journal records observations and commands; it does not establish causality or optimality."
         )
     return GuardResult(text=result, ok=not dropped, dropped=tuple(dropped))
-
-
-def _outside_code(text: str) -> list[str]:
-    pieces: list[str] = []
-    position = 0
-    for match in FENCE_PATTERN.finditer(text):
-        pieces.append(text[position : match.start()])
-        position = match.end()
-    pieces.append(text[position:])
-    return pieces
-
-
-def _replace_outside_code(text: str, unsupported: Sequence[str]) -> str:
-    pieces: list[str] = []
-    position = 0
-    remaining = list(unsupported)
-    for match in FENCE_PATTERN.finditer(text):
-        pieces.append(_strip_all(text[position : match.start()], remaining))
-        pieces.append(match.group(0))
-        position = match.end()
-    pieces.append(_strip_all(text[position:], remaining))
-    return re.sub(r"\n{3,}", "\n\n", "".join(pieces)).strip()
-
-
-def _strip_all(text: str, remaining: list[str]) -> str:
-    cleaned = text
-    for raw in list(remaining):
-        if raw not in cleaned:
-            continue
-        cleaned = cleaned.replace(raw, "", 1)
-        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
-        cleaned = re.sub(r"[ \t]+([,.;:!?])", r"\1", cleaned)
-        remaining.remove(raw)
-    return cleaned

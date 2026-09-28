@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "run_id": "jarvis-policy-20260926",
+  "scenario": "single-policy-pass-on-real-baseline-feedback",
+  "well": "62",
+  "step": 0,
+  "date": "2007-01-01",
+  "input_observation": {
+    "well": "62",
+    "role": "INJ",
+    "is_open": true,
+    "liquid_rate_m3_per_day": -0.0,
+    "oil_rate_t_per_day": 0.0,
+    "injection_rate_m3_per_day": 35.0,
+    "setpoint_m3_per_day": 35.0
+  },
+  "decision_summary": {
+    "observed_setpoint_m3_per_day": 35.0,
+    "proposal_events": [
+      {
+        "control_step": 0,
+        "well": "62",
+        "kind": "SET_RATE",
+        "value": 0.0
+      },
+      {
+        "control_step": 0,
+        "well": "62",
+        "kind": "SET_RATE",
+        "value": 2.0
+      }
+    ],
+    "final_events": [
+      {
+        "control_step": 0,
+        "kind": "SET_RATE",
+        "value": 1,
+        "well": "62"
+      },
+      {
+        "control_step": 0,
+        "kind": "OPEN",
+        "value": null,
+        "well": "62"
+      }
+    ],
+    "basis": "recorded-events; no causal inference"
+  },
+  "rule_facts": [
+    {
+      "level": "FIELD",
+      "agent": "WaterAgent",
+      "entry": {
+        "control_step": 0,
+        "well": "62",
+        "rule": "R1",
+        "inputs": {
+          "water_ceiling_m3_per_day": 42.0,
+          "well_injection_cap_m3_per_day": 42.0,
+          "field_water_budget_m3_per_day": -1.0,
+          "binding_source": 1.0
+        },
+        "decision": "SET_WATER_CEILING"
+      }
+    },
+    {
+      "level": "GROUP",
+      "agent": "G1",
+      "entry": {
+        "control_step": 0,
+        "well": "62",
+        "rule": "R1",
+        "inputs": {
+          "gross_value_rub_per_m3": 6004.86701147743,
+          "opex_injection_rub_per_m3": 30.0,
+          "marginal_value_rub_per_m3": 5974.86701147743,
+          "producers_covered": 57.0,
+          "oil_margin_rub_per_t": 8360.0,
+          "oil_density_t_per_m3": 0.9131,
+          "lambda_lag_months": 0.0,
+          "theta_r1_lag_months": 3.0,
+          "injection_budget_m3_per_day": 69.76533612172533,
+          "budget_held_outside_lambda_m3_per_day": 0.0,
+          "budget_for_measured_m3_per_day": 69.76533612172533,
+          "injection_cap_m3_per_day": 42.0,
+          "budget_unallocated_m3_per_day": 0.0,
+          "share_of_budget": 0.0,
+          "target_rate_m3_per_day": 0.0,
+          "previous_setpoint_m3_per_day": 35.0,
+          "group_limit_scale": 0.0696461615422235
+        },
+        "decision": "SET_RATE"
+      }
+    },
+    {
+      "level": "GROUP",
+      "agent": "G1",
+      "entry": {
+        "control_step": 0,
+        "well": "62",
+        "rule": "R5",
+        "inputs": {
+          "group_injection_m3_per_day": 1195.0839986801147,
+          "group_offtake_m3_per_day": 871.053168296814,
+          "compensation": 1.3719989114061593,
+          "theta_r5_compensation_low": 0.9,
+          "theta_r5_compensation_high": 1.15,
+          "corridor_low": 0.9,
+          "corridor_high": 1.15,
+          "corridor_enforced": 0.0,
+          "target_group_injection_m3_per_day": 1001.711143541336,
+          "target_compensation": 1.15,
+          "share_of_group": 0.029286644318437038,
+          "previous_setpoint_m3_per_day": 35.0,
+          "target_rate_m3_per_day": 2.043192584753177,
+          "group_limit_scale": 0.0696461615422235
+        },
+        "decision": "SET_RATE"
+      }
+    },
+    {
+      "level": "WELL",
+      "agent": "62",
+      "entry": {
+        "control_step": 0,
+        "well": "62",
+        "rule": "R1",
+        "inputs": {
+          "control_step": 0.0,
+          "liquid_rate_m3_per_day": -0.0,
+          "injection_rate_m3_per_day": 35.0,
+          "previous_setpoint_m3_per_day": 35.0,
+          "requested_value_m3_per_day": 0.0,
+          "setpoint_step_m3_per_day": 1.0,
+          "applied_value_m3_per_day": 0.0
+        },
+        "decision": "SET_RATE"
+      }
+    },
+    {
+      "level": "WELL",
+      "agent": "62",
+      "entry": {
+        "control_step": 0,
+        "well": "62",
+        "rule": "R5",
+        "inputs": {
+          "control_step": 0.0,
+          "liquid_rate_m3_per_day": -0.0,
+          "injection_rate_m3_per_day": 35.0,
+          "previous_setpoint_m3_per_day": 35.0,
+          "requested_value_m3_per_day": 2.043192584753177,
+          "setpoint_step_m3_per_day": 1.0,
+          "applied_value_m3_per_day": 2.0
+        },
+        "decision": "SET_RATE"
+      }
+    }
+  ],
+  "hierarchy_proposed_events": [
+    {
+      "control_step": 0,
+      "well": "62",
+      "kind": "SET_RATE",
+      "value": 0.0
+    },
+    {
+      "control_step": 0,
+      "well": "62",
+      "kind": "SET_RATE",
+      "value": 2.0
+    }
+  ],
+  "final_schedule_events": [
+    {
+      "control_step": 0,
+      "kind": "SET_RATE",
+      "value": 1,
+      "well": "62"
+    },
+    {
+      "control_step": 0,
+      "kind": "OPEN",
+      "value": null,
+      "well": "62"
+    }
+  ],
+  "record_status": "observation-and-evidence-recorded",
+  "projection_status": "not-recorded-separately",
+  "plan_check": {
+    "opm_status": "OK",
+    "run_status": "rejected",
+    "sound": false,
+    "dynamic_violations": 785,
+    "blocking_dynamic_violations": 165
+  },
+  "origin": {
+    "kind": "single-policy-pass-on-real-baseline-feedback",
+    "feedback_source_run_id": "20260816T200926-8b4da543d1ed",
+    "feedback_response_hash": "85f04c6a74ff575d9fe1b25cf3f8a8adcfab998e27b2184036b48d8cd526423f",
+    "baseline_schedule_hash": "32209ecc1f6f2e46184414567401284f55409221dde361dfa23ee293b5a98ff3",
+    "theta": "existing default_theta; no optimisation or retraining",
+    "decision_trace_stage": "before final scheduling/projection; inspect final events too",
+    "self_consistent": false,
+    "is_final_submission": false,
+    "note": "Diagnostic run for Jarvis explanations, not the submitted plan or a closed-loop optimum."
+  },
+  "field_injection_limit_m3_per_day": 69.76533612172533
+}

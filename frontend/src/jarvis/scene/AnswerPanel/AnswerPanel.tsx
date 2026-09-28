@@ -18,13 +18,13 @@ export const firstLineOf = (source: string): string => {
 
 export const AnswerPanel = ({ scene }: { scene: Scene | null }) => {
   const t = useT();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const bodyId = useId();
   const source = scene?.answer ?? scene?.answerDraft ?? '';
   const sceneId = scene?.id ?? null;
 
   useEffect(() => {
-    setExpanded(false);
+    setExpanded(true);
   }, [sceneId]);
 
   useEffect(() => {

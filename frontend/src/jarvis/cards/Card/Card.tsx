@@ -37,7 +37,7 @@ export const Card = ({ card, expanded, onToggle, onOpenInConsole, children }: Ca
       </header>
       <div className="jarvis-card-body">{children}</div>
       <footer className="jarvis-card-foot">
-        <button type="button" className="jarvis-card-toggle" onClick={onToggle}>
+        <button type="button" className="jarvis-card-toggle" aria-expanded={expanded} onClick={onToggle}>
           {expanded ? t('jarvis-cards.collapse') : t('jarvis-cards.expand')}
         </button>
         {card.action === undefined ? null : (

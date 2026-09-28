@@ -59,4 +59,34 @@ describe('history rail context', () => {
     expect(context.textContent).toContain('2015');
     expect(context.textContent).toContain('Сценарий: base');
   });
+
+  it('consumes vertical wheel only when it can scroll history horizontally', () => {
+    render(<I18nProvider><HistoryRail scenes={[scene]} activeIndex={0} onSelect={vi.fn()} /></I18nProvider>);
+    const list = screen.getByRole('listbox');
+    Object.defineProperty(list, 'scrollWidth', { configurable: true, value: 800 });
+    Object.defineProperty(list, 'clientWidth', { configurable: true, value: 200 });
+    const event = new WheelEvent('wheel', { deltaY: 50, bubbles: true, cancelable: true });
+    list.dispatchEvent(event);
+    expect(list.scrollLeft).toBe(50);
+    expect(event.defaultPrevented).toBe(true);
+    list.scrollLeft = 600;
+    const edge = new WheelEvent('wheel', { deltaY: 50, bubbles: true, cancelable: true });
+    list.dispatchEvent(edge);
+    expect(edge.defaultPrevented).toBe(false);
+  });
+
+  it('allows Ctrl+wheel zoom and normalizes line/page scroll units', () => {
+    render(<I18nProvider><HistoryRail scenes={[scene]} activeIndex={0} onSelect={vi.fn()} /></I18nProvider>);
+    const list = screen.getByRole('listbox');
+    Object.defineProperty(list, 'scrollWidth', { configurable: true, value: 800 });
+    Object.defineProperty(list, 'clientWidth', { configurable: true, value: 200 });
+    const zoom = new WheelEvent('wheel', { deltaY: 100, ctrlKey: true, bubbles: true, cancelable: true });
+    list.dispatchEvent(zoom);
+    expect(zoom.defaultPrevented).toBe(false);
+    expect(list.scrollLeft).toBe(0);
+    list.dispatchEvent(new WheelEvent('wheel', { deltaY: 3, deltaMode: 1, bubbles: true, cancelable: true }));
+    expect(list.scrollLeft).toBe(96);
+    list.dispatchEvent(new WheelEvent('wheel', { deltaY: 1, deltaMode: 2, bubbles: true, cancelable: true }));
+    expect(list.scrollLeft).toBe(296);
+  });
 });

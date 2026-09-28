@@ -4,7 +4,6 @@ import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import { Card } from '@/jarvis/cards/Card/Card';
 import { CardBody } from '@/jarvis/cards/CardBody/CardBody';
 import type { SceneCard } from '@/jarvis/model/scenes';
-import { orbitSeats } from '@/jarvis/scene/lib/orbitLayout';
 import './Orbit.css';
 
 interface OrbitProps {
@@ -14,7 +13,6 @@ interface OrbitProps {
 }
 
 const STAGGER_MS = 80;
-const RADIUS = 1;
 
 export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) => {
   const t = useT();
@@ -22,10 +20,10 @@ export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) =>
   const proposalId = cards.find((entry) =>
     entry.card.type === 'case-proposal' || entry.card.type === 'alternative-proposal'
   )?.id;
+  const firstId = cards[0]?.id;
   useEffect(() => {
-    if (proposalId !== undefined) setExpanded(proposalId);
-  }, [proposalId]);
-  const seats = orbitSeats(cards.length, RADIUS, STAGGER_MS);
+    setExpanded(proposalId ?? firstId ?? null);
+  }, [proposalId, firstId]);
 
   return (
     <div
@@ -35,12 +33,9 @@ export const Orbit = ({ cards, onOpen, briefingLoading = false }: OrbitProps) =>
       data-dense={cards.length > 6 ? 'true' : undefined}
     >
       {cards.map((entry, index) => {
-        const seat = seats[index];
         const open = expanded === entry.id;
         const style = {
-          '--orbit-x': `${seat.x}`,
-          '--orbit-y': `${seat.y}`,
-          '--orbit-delay': `${seat.delayMs}ms`
+          '--orbit-delay': `${index * STAGGER_MS}ms`
         } as CSSProperties;
         return (
           <div

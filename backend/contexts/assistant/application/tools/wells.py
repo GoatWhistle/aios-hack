@@ -76,8 +76,8 @@ def well_snapshot(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
 
 def well_series(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     well = str(arguments["well"])
-    metric = str(arguments["metric"])
-    if metric not in SERIES_METRICS:
+    metric = arguments.get("metric")
+    if metric is not None and metric not in SERIES_METRICS:
         raise ToolFailure(
             f"metric {metric} is not present in the showcase: available metrics "
             f"are {', '.join(SERIES_METRICS)}"
@@ -87,6 +87,16 @@ def well_series(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         rows = index.require_well(well)
     except ArtifactError as error:
         raise ToolFailure(str(error)) from error
+    if metric is None:
+        try:
+            step = context.resolve_step(None)
+        except ArtifactError as error:
+            raise ToolFailure(str(error)) from error
+        state = rows.steps.get(step)
+        role = state.get("role") if isinstance(state, Mapping) else None
+        if role not in ("INJ", "PROD"):
+            raise ToolFailure("the well role at the selected control step is unavailable; specify a series metric")
+        metric = "injection_rate" if role == "INJ" else "liquid_rate"
     # Bound default as well as explicit queries: the schema caps requested
     # indices, but a future showcase artifact may contain a longer horizon.
     last = min(index.step_count() - 1, MAX_SERIES_STEP)

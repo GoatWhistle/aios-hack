@@ -8,6 +8,11 @@ interface InputDockProps {
   onAsk: (question: string) => void;
   focusSignal: number;
   history: readonly string[];
+  sessionId?: string;
+  busy?: boolean;
+  onCancel?: () => void;
+  draft?: string;
+  onDraftChange?: (text: string) => void;
 }
 
 export const recallAt = (
@@ -21,11 +26,20 @@ export const recallAt = (
   return { text: history[history.length - 1 - next], cursor: next };
 };
 
-export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
+export const InputDock = ({ onAsk, focusSignal, history, sessionId, busy = false, onCancel, draft, onDraftChange }: InputDockProps) => {
   const t = useT();
-  const [text, setText] = useState('');
+  const [localText, setLocalText] = useState('');
+  const text = draft ?? localText;
+  const setText = (value: string) => {
+    const bounded = value.slice(0, QUESTION_LIMIT);
+    if (onDraftChange) onDraftChange(bounded);
+    else setLocalText(bounded);
+  };
   const [cursor, setCursor] = useState(-1);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  const historyContent = JSON.stringify(history);
+  useEffect(() => { setCursor(-1); }, [historyContent, sessionId]);
 
   useEffect(() => {
     if (focusSignal > 0) {
@@ -35,7 +49,7 @@ export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
 
   const submit = () => {
     const trimmed = text.trim();
-    if (trimmed.length === 0) {
+    if (trimmed.length === 0 || busy) {
       return;
     }
     onAsk(trimmed);
@@ -44,6 +58,7 @@ export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit();
@@ -63,7 +78,7 @@ export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
       event.preventDefault();
       const next = cursor - 1;
       setCursor(next);
-      setText(next < 0 ? '' : history[history.length - 1 - next]);
+      setText(next < 0 ? '' : history[history.length - 1 - next] ?? '');
     }
   };
 
@@ -92,8 +107,24 @@ export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
       <span className="jarvis-dock-count" aria-hidden="true">
         {t('jarvis-screen.limit', { count: text.length })}
       </span>
-      <MicButton onTranscript={(value) => setText(value)} onCommit={onAsk} />
-      <button type="submit" className="jarvis-dock-send" disabled={text.trim().length === 0}>
+      <MicButton onTranscript={(value) => {
+        setText(value);
+        setCursor(-1);
+      }} onCommit={(value) => {
+        const question = value.trim().slice(0, QUESTION_LIMIT);
+        setCursor(-1);
+        if (busy) setText(question);
+        else if (question.length > 0) {
+          onAsk(question);
+          setText('');
+        }
+      }} />
+      {busy && onCancel ? (
+        <button type="button" className="jarvis-dock-cancel" onClick={onCancel}>
+          {t('jarvis-screen.walk.stop')}
+        </button>
+      ) : null}
+      <button type="submit" className="jarvis-dock-send" disabled={busy || text.trim().length === 0}>
         {t('jarvis-screen.send')}
       </button>
     </form>

@@ -6,6 +6,7 @@ const FOCUSABLE = [
   'input:not([disabled])',
   'textarea:not([disabled])',
   'select:not([disabled])',
+  'summary',
   '[tabindex]:not([tabindex="-1"])'
 ].join(',');
 
@@ -13,9 +14,20 @@ export const focusableWithin = (root: Element | null): HTMLElement[] => {
   if (root === null) {
     return [];
   }
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (node) => node.getAttribute('aria-hidden') !== 'true' && node.tabIndex !== -1
-  );
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((node) => {
+    if (node.closest('[hidden], [inert], [aria-hidden="true"]') !== null) return false;
+    if (node.getAttribute('tabindex') === '-1') return false;
+    if (node.tagName !== 'SUMMARY' && node.tabIndex === -1) return false;
+    let ancestor: Element | null = node;
+    while (ancestor !== null && ancestor !== root) {
+      if (ancestor instanceof HTMLDetailsElement && !ancestor.open) {
+        const summary = [...ancestor.children].find((child) => child.tagName === 'SUMMARY');
+        if (summary === undefined || !summary.contains(node)) return false;
+      }
+      ancestor = ancestor.parentElement;
+    }
+    return true;
+  });
 };
 
 export const nextFocusIndex = (

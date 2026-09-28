@@ -61,6 +61,49 @@ def test_session_events_and_summary_survive_a_store_restart(tmp_path) -> None:
     assert restored.history[0].answer == "Подробный ответ"
 
 
+def test_scene_ids_continue_after_restart_even_when_last_answer_failed(tmp_path) -> None:
+    root = tmp_path / "sessions"
+    disk = SessionDisk(root)
+    events = [
+        {"type": "ask", "question": "Первый вопрос"},
+        {"type": "scene", "scene_id": "s-04", "question": "Первый вопрос"},
+        {"type": "caption", "scene_id": "s-04", "text": "Ответ"},
+        {"type": "done", "scene_id": "s-04"},
+        {"type": "ask", "question": "Запрос, завершившийся ошибкой"},
+        {"type": "scene", "scene_id": "s-05", "question": "Запрос, завершившийся ошибкой"},
+        {"type": "error", "code": "timeout"},
+    ]
+    for event in events:
+        disk.append("restart-scene", event)
+    restored = SessionStore(disk=SessionDisk(root)).get("restart-scene")
+    assert restored.next_scene_id() == "s-06"
+
+
+def test_replayed_duplicate_scene_ids_remain_distinct_and_stable(tmp_path) -> None:
+    disk = SessionDisk(tmp_path / "sessions")
+    for question in ("Первый", "Второй"):
+        disk.append("duplicate-scene", {"type": "ask", "question": question})
+        disk.append("duplicate-scene", {"type": "scene", "scene_id": "s-05", "question": question})
+        disk.append("duplicate-scene", {"type": "caption", "scene_id": "s-05", "text": question})
+    replayed = disk.events("duplicate-scene")
+    assert [event["scene_id"] for event in replayed if event["type"] == "scene"] == ["s-05", "s-06"]
+    assert [event["scene_id"] for event in replayed if event["type"] == "caption"] == ["s-05", "s-06"]
+    disk.append("duplicate-scene", {"type": "ask", "question": "Третий"})
+    disk.append("duplicate-scene", {"type": "scene", "scene_id": "s-06", "question": "Третий"})
+    expanded = disk.events("duplicate-scene")
+    assert expanded[:len(replayed)] == replayed
+    assert expanded[-1]["scene_id"] == "s-07"
+    assert SessionStore(disk=SessionDisk(disk.root)).get("duplicate-scene").next_scene_id() == "s-08"
+
+
+def test_scene_watermark_survives_bounded_event_replay(tmp_path, monkeypatch) -> None:
+    disk = SessionDisk(tmp_path / "sessions")
+    disk.append("bounded-scene", {"type": "ask", "question": "Запрос"})
+    disk.append("bounded-scene", {"type": "scene", "scene_id": "s-07"})
+    monkeypatch.setattr("backend.contexts.assistant.infrastructure.session_store.MAX_EVENTS", 1)
+    assert SessionStore(disk=SessionDisk(disk.root)).get("bounded-scene").next_scene_id() == "s-08"
+
+
 def test_session_disk_prunes_expired_sessions_and_keeps_recent_ones(tmp_path) -> None:
     root = tmp_path / "sessions"
     disk = SessionDisk(root, retention_days=30)
@@ -368,3 +411,26 @@ def test_system_prompt_switches_language() -> None:
     prompt = build_system_prompt(ConsoleContext(lang="en"), "en")
     assert "You are Jarvis" in prompt
     assert "The answer language is English" in prompt
+
+
+def test_local_prompt_memory_is_bounded_verbatim_and_preserves_legacy_provenance():
+    from backend.contexts.assistant.domain.session import Session, Exchange, HISTORY_LIMIT, SUMMARY_LIMIT, MEMORY_PREFIX
+    session = Session(session_id="bounded", summary_text="Legacy summary from earlier provider")
+    session.remember(Exchange("Earlier question", ("rule",), "Observed 35 m³/day", "Scheduled SET_RATE 1 m³/day"))
+    for index in range(HISTORY_LIMIT):
+        session.remember(Exchange(f"New question {index}", ("rule",), "Present card"))
+    session.compact_memory()
+    records = [json.loads(row) for row in session.summary_text[len(MEMORY_PREFIX):].splitlines()]
+    assert records[0]["legacy_summary"] == "Legacy summary from earlier provider"
+    assert records[-1]["caption"] == "Observed 35 m³/day"
+    assert records[-1]["answer_excerpt"] == "Scheduled SET_RATE 1 m³/day"
+    for index in range(100):
+        session.remember(Exchange("Long question " * 300, ("rule",), 'Quoted "value"\n' * 100, "Observed 987654321 " * 100))
+        session.compact_memory()
+        assert len(session.summary_text) <= SUMMARY_LIMIT
+        assert len(session.summary()) < 10000
+        assert not session.pending_summary()
+        for row in session.summary_text[len(MEMORY_PREFIX):].splitlines():
+            assert isinstance(json.loads(row), dict)
+    assert len(session.history) == HISTORY_LIMIT
+    assert "…" in session.summary_text

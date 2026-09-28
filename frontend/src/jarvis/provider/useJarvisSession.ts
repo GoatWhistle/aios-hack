@@ -4,6 +4,7 @@ import {
   emptyScenes,
   scenesReducer,
   selectSceneAt,
+  settleRestoredScenes,
   type ScenesState
 } from '@/jarvis/model/scenes';
 import {
@@ -19,6 +20,8 @@ import type { JarvisAskContext, JarvisEvent } from '@/jarvis/transport/events';
 export interface JarvisSession {
   scenes: ScenesState;
   sessionId: string;
+  questionDraft: string;
+  setQuestionDraft: (text: string) => void;
   askQuestion: (question: string, context?: JarvisAskContext) => void;
   pushEvents: (events: readonly JarvisEvent[]) => void;
   mergeEvents: (events: readonly JarvisEvent[]) => void;
@@ -42,6 +45,11 @@ export const useJarvisSession = (
   const contextVersion = askContext.context_version ?? JSON.stringify(askContext);
   const previousContextVersion = useRef(contextVersion);
   const [sessionId, setSessionId] = useState(() => storedSessionId());
+  const [questionDrafts, setQuestionDrafts] = useState<Record<string, string>>({});
+  const questionDraft = questionDrafts[sessionId] ?? '';
+  const setQuestionDraft = useCallback((text: string) => {
+    setQuestionDrafts((drafts) => ({ ...drafts, [sessionId]: text.slice(0, QUESTION_LIMIT) }));
+  }, [sessionId]);
   const current = useRef(sessionId);
   current.current = sessionId;
 
@@ -93,19 +101,20 @@ export const useJarvisSession = (
     setBusy(false);
     pendingSceneRef.current = null;
     if (pendingScene !== null) settleCancelledScene(pendingScene);
-    setScenes((state) => events.reduce((next, event) => scenesReducer(next, event), state));
+    setScenes((state) => settleRestoredScenes(events.reduce((next, event) => scenesReducer(next, event), state)));
   }, [settleCancelledScene]);
 
   const mergeEvents = useCallback((events: readonly JarvisEvent[]) => {
+    const liveSceneId = abortRef.current === null ? null : pendingSceneRef.current;
     setScenes((state) => {
       const merged = events
         .filter((event) => event.type !== 'status' && event.type !== 'error' && event.type !== 'suggestions')
         .reduce((next, event) => scenesReducer(next, event), state);
       return {
-        ...merged,
+        ...settleRestoredScenes(merged, liveSceneId),
         activeIndex: state.scenes.length > 0 ? state.activeIndex : merged.activeIndex,
-        status: state.status,
-        tool: state.tool,
+        status: liveSceneId === null ? null : state.status,
+        tool: liveSceneId === null ? null : state.tool,
         suggestions: state.suggestions
       };
     });
@@ -178,6 +187,7 @@ export const useJarvisSession = (
         })
       );
       const run = async () => {
+        let requestSceneId = pending;
         try {
           for await (const event of transport.ask(
             { sessionId: requestSessionId, question: text, lang, context: requestContext },
@@ -185,6 +195,7 @@ export const useJarvisSession = (
           )) {
             if (event.type === 'scene') {
               if (!controller.signal.aborted && sessionGeneration.current === generation) {
+                requestSceneId = event.scene_id;
                 pendingSceneRef.current = event.scene_id;
               }
               setScenes((state) => controller.signal.aborted || sessionGeneration.current !== generation
@@ -192,9 +203,12 @@ export const useJarvisSession = (
                 : adoptScene(state, pending, event));
               continue;
             }
+            const requestEvent: JarvisEvent = event.type === 'error' && event.scene_id === undefined
+              ? { ...event, scene_id: requestSceneId }
+              : event;
             setScenes((state) => controller.signal.aborted || sessionGeneration.current !== generation
               ? state
-              : scenesReducer(state, event));
+              : scenesReducer(state, requestEvent));
           }
         } catch {
           if (!controller.signal.aborted) {
@@ -202,6 +216,7 @@ export const useJarvisSession = (
               ? state
               : scenesReducer(state, {
                 type: 'error',
+                scene_id: requestSceneId,
                 code: 'upstream',
                 message: 'transport threw'
               }));
@@ -223,6 +238,8 @@ export const useJarvisSession = (
     () => ({
       scenes,
       sessionId,
+      questionDraft,
+      setQuestionDraft,
       askQuestion,
       pushEvents,
       mergeEvents,
@@ -235,6 +252,8 @@ export const useJarvisSession = (
     [
       scenes,
       sessionId,
+      questionDraft,
+      setQuestionDraft,
       askQuestion,
       pushEvents,
       mergeEvents,

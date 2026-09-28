@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any, Iterator, Sequence
 
 from backend.contexts.assistant.application.answer import split_answer
+from backend.contexts.assistant.application.chart_requests import journal_tool_preset
+from backend.contexts.assistant.application.journal_explanation import journal_explanation
+from backend.contexts.assistant.application.run_series_info import run_series_info
 from backend.contexts.assistant.application.caption import (
     code_sources,
     doc_numbers,
@@ -15,6 +18,9 @@ from backend.contexts.assistant.domain.guard import (
     guard_plan_status,
     guard_run_references,
     guard_tool_failure_claims,
+    guard_artifact_references,
+    guard_delivery_claims,
+    guard_chart_availability,
 )
 from backend.contexts.assistant.application.orchestrator_events import Event
 from backend.contexts.assistant.application.suggestions import build_suggestions
@@ -26,7 +32,7 @@ from backend.contexts.assistant.application.tools.context import (
     ToolFailure,
 )
 from backend.contexts.assistant.application.tools.registry import ToolInputError
-from backend.contexts.assistant.domain.session import Exchange, Session, summary_request
+from backend.contexts.assistant.domain.session import Exchange, Session
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunError
 from backend.contexts.assistant.infrastructure.llm.chat import ChatClient
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
@@ -76,7 +82,9 @@ def call_tool(context: ToolContext, call: ToolCall) -> tuple[Card, Any]:
 def _model_payload(card: Card) -> dict[str, Any]:
     """Keep UI-only and confirmation data out of model prose and claim guards."""
     result = dict(card.payload)
-    result.pop("run_series", None)
+    series = result.pop("run_series", None)
+    if isinstance(series, dict):
+        result["run_series_info"] = run_series_info(series)
     if card.type == "case-proposal":
         result.pop("constraints", None)
         result.pop("base_constraints", None)
@@ -86,30 +94,51 @@ def _model_payload(card: Card) -> dict[str, Any]:
     return result
 
 
-def compress_session(
-    client: ChatClient, disk: SessionDisk | None, session: Session, system: str
-) -> None:
-    pending = session.pending_summary()
-    if not pending:
+def provider_failure_journal_reply(cards: Sequence[Card], lang: str, *, timed_out: bool = True) -> tuple[str, str, str] | None:
+    journals = [
+        card for card in cards
+        if card.type == "rule" and isinstance(card.payload.get("decision_summary"), dict)
+        and card.payload.get("record_status")
+    ]
+    if len(journals) != 1:
+        return None
+    answer = journal_explanation(journals[0].payload, lang)
+    if answer is None:
+        return None
+    caption = (
+        "Модель не ответила вовремя; показан разбор записанного журнала."
+        if lang == "ru" else
+        "The model did not respond in time; the recorded journal facts are shown."
+    )
+    if not timed_out:
+        caption = ("Модель недоступна; показан разбор записанного журнала."
+                   if lang == "ru" else "The model is unavailable; the recorded journal facts are shown.")
+    return caption, answer, journals[0].provenance
+
+
+def compose_recorded_journal_failure(
+    reply: tuple[str, str, str], store: ArtifactStore, console: ConsoleContext,
+    session: Session, scene_id: str, question: str, rounds: int, elapsed_ms: int,
+    card_types: tuple[str, ...], *, provider_status: str, provider_error_code: str,
+) -> Iterator[Event]:
+    """Finish a useful recorded response without another provider request."""
+    caption, answer, provenance = reply
+    yield Event("warning", {"code": provider_error_code, "fallback": "recorded-journal", "detail": caption})
+    yield Event("caption", {"scene_id": scene_id, "text": caption, "guarded": True, "provenance": provenance, "fallback": True})
+    yield Event("answer", {"scene_id": scene_id, "text": answer, "guarded": True, "provenance": provenance, "fallback": True})
+    session.remember(Exchange(question=question, card_types=card_types, caption=caption, answer=answer))
+    yield Event("suggestions", {"items": build_suggestions(console, store, card_types=card_types, history=session.questions())})
+    yield Event("done", {
+        "scene_id": scene_id, "tool_rounds": rounds, "elapsed_ms": elapsed_ms,
+        "completion": "recorded-journal-fallback", "provider_status": provider_status, "provider_error_code": provider_error_code,
+    })
+
+
+def compress_session(disk: SessionDisk | None, session: Session) -> None:
+    """Compact prompt memory locally; the full event archive stays unchanged."""
+    if not session.pending_summary():
         return
-    request = summary_request(pending)
-    if session.summary_text:
-        request = (
-            f"Прежняя справка: {session.summary_text}\n\n{request}"
-        )
-    collected: list[str] = []
-    try:
-        for event in client.stream(
-            [ChatMessage(role="user", content=request)], (), system
-        ):
-            if isinstance(event, TextDelta):
-                collected.append(event.text)
-            elif isinstance(event, Done):
-                break
-    except Exception:
-        session.absorb_summary(session.summary_text)
-        return
-    session.absorb_summary("".join(collected).strip())
+    session.compact_memory()
     if disk is not None and session.summary_text:
         try:
             disk.set_summary(session.session_id, session.summary_text)
@@ -165,6 +194,15 @@ def compose(
     status_caption = guard_plan_status(checked_caption_context.text, guarded_payloads, context.lang)
     checked_caption = guard_decision_claims(status_caption.text, guarded_payloads, context.lang)
     checked_caption_failure = guard_tool_failure_claims(checked_caption.text, cards, context.lang)
+    checked_caption_sources = guard_artifact_references(checked_caption_failure.text, reference_evidence, context.lang)
+    checked_caption_delivery = guard_delivery_claims(checked_caption_sources.text, guarded_payloads, context.lang)
+    checked_caption_chart = guard_chart_availability(checked_caption_delivery.text, guarded_payloads, context.lang)
+    if not checked_caption_sources.ok:
+        yield Event("warning", {"code": "artifact-reference-unverified"})
+    if not checked_caption_delivery.ok:
+        yield Event("warning", {"code": "delivery-claim-conflict"})
+    if not checked_caption_chart.ok:
+        yield Event("warning", {"code": "chart-availability-conflict"})
     if not status_caption.ok:
         yield Event("warning", {"code": "plan-status-conflict"})
     if not checked_caption.ok:
@@ -173,7 +211,7 @@ def compose(
         yield Event("warning", {"code": "tool-result-unverified"})
     yield Event(
         "caption",
-        {"scene_id": scene_id, "text": checked_caption_failure.text, "guarded": True},
+        {"scene_id": scene_id, "text": checked_caption_chart.text, "guarded": True},
     )
     answer_text = ""
     if split.answer:
@@ -196,13 +234,35 @@ def compose(
         status_answer = guard_plan_status(answer_text, guarded_payloads, context.lang)
         checked_answer = guard_decision_claims(status_answer.text, guarded_payloads, context.lang)
         checked_answer_failure = guard_tool_failure_claims(checked_answer.text, cards, context.lang)
+        checked_answer_sources = guard_artifact_references(checked_answer_failure.text, reference_evidence, context.lang)
+        checked_answer_delivery = guard_delivery_claims(checked_answer_sources.text, guarded_payloads, context.lang)
+        checked_answer_chart = guard_chart_availability(checked_answer_delivery.text, guarded_payloads, context.lang)
+        if not checked_answer_sources.ok:
+            yield Event("warning", {"code": "artifact-reference-unverified"})
+        if not checked_answer_delivery.ok:
+            yield Event("warning", {"code": "delivery-claim-conflict"})
+        if not checked_answer_chart.ok:
+            yield Event("warning", {"code": "chart-availability-conflict"})
         if not status_answer.ok:
             yield Event("warning", {"code": "plan-status-conflict"})
         if not checked_answer.ok:
             yield Event("warning", {"code": "decision-claim-unverified"})
         if not checked_answer_failure.ok:
             yield Event("warning", {"code": "tool-result-unverified"})
-        answer_text = checked_answer_failure.text
+        answer_text = checked_answer_chart.text
+        # A generated draft that loses facts to a guard is not a usable
+        # explanation. Render the recorded journal fields directly instead of
+        # weakening guards or shipping blank measurements to the engineer.
+        if checked.warnings or not checked_answer_context.ok or not checked_answer.ok:
+            journals = [
+                card.payload for card in cards
+                if card.type == "rule" and isinstance(card.payload.get("decision_summary"), dict)
+                and card.payload.get("record_status")
+            ]
+            if len(journals) == 1:
+                recorded_answer = journal_explanation(journals[0], context.lang)
+                if recorded_answer is not None:
+                    answer_text = recorded_answer
         if answer_text:
             yield Event(
                 "answer",
@@ -212,15 +272,24 @@ def compose(
                     "guarded": True,
                 },
             )
+    if not split.answer and journal_tool_preset(question, console):
+        journals = [card for card in cards if card.type == "rule"
+                    and isinstance(card.payload.get("decision_summary"), dict)
+                    and card.payload.get("record_status")]
+        if len(journals) == 1:
+            answer_text = journal_explanation(journals[0].payload, context.lang) or ""
+            if answer_text:
+                yield Event("answer", {"scene_id": scene_id, "text": answer_text,
+                                       "guarded": True, "provenance": journals[0].provenance})
     session.remember(
         Exchange(
             question=question,
             card_types=tuple(card.type for card in cards),
-            caption=checked_caption_failure.text,
+            caption=checked_caption_chart.text,
             answer=answer_text,
         )
     )
-    compress_session(client, disk, session, system)
+    compress_session(disk, session)
     yield Event(
         "suggestions",
         {

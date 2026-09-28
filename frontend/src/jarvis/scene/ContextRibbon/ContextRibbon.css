@@ -1,7 +1,8 @@
 .jarvis-ribbon {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-3);
   flex: none;
   padding-bottom: var(--space-3);
   border-bottom: var(--border-hairline) solid var(--color-border);
@@ -9,11 +10,48 @@
 
 .jarvis-ribbon-facts {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-5);
+  gap: var(--space-3) var(--space-5);
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.jarvis-ribbon-answer-context {
+  order: 3;
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.jarvis-ribbon-settings {
+  position: relative;
+}
+
+.jarvis-ribbon-settings-body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 190px;
+  padding: var(--space-3);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-solid);
+}
+
+.jarvis-ribbon-settings > summary {
+  list-style: none;
+}
+
+.jarvis-ribbon-settings > summary::-webkit-details-marker {
+  display: none;
 }
 
 .jarvis-ribbon-facts > div {

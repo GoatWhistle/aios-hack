@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { TimelineStep } from '@/entities/timeline/types';
 import { clamp } from '@/shared/lib/math/clamp';
-import { isEditableTarget, isInsideScroller } from '@/shared/lib/keyboard/target';
+import { hasOpenModalDialog, isInteractiveTarget, isInsideScroller } from '@/shared/lib/keyboard/target';
 
 const yearOf = (step: TimelineStep): number => Number(step.date.slice(0, 4));
 
@@ -77,11 +77,12 @@ export const useHotkeys = ({
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (isEditableTarget(event.target)) {
+      if (hasOpenModalDialog() || isInteractiveTarget(event.target)) {
         return;
       }
       const state = handlers.current;
       if (event.key === ' ' || event.key === 'Spacebar') {
+        if (event.repeat) return;
         event.preventDefault();
         state.onTogglePlay();
         return;

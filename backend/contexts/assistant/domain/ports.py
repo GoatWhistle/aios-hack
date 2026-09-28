@@ -35,6 +35,9 @@ class SessionMeta(Protocol):
     @property
     def summary(self) -> str: ...
 
+    @property
+    def scenes(self) -> int: ...
+
 
 @runtime_checkable
 class SessionRecordStore(Protocol):

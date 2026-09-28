@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { hasOpenModalDialog } from '@/shared/lib/keyboard/target';
 
 interface PaletteState {
   open: boolean;
@@ -47,6 +48,7 @@ export const useCommandPalette = (): PaletteState => {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || (!open && hasOpenModalDialog())) return;
       if (event.key !== 'k' && event.key !== 'K') {
         return;
       }

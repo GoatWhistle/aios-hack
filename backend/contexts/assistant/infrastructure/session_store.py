@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from backend.shared.settings import Settings
 from backend.shared.paths import repository_root
-from backend.contexts.assistant.domain.session_events import restore_exchanges
+from backend.contexts.assistant.domain.session_events import normalize_scene_ids, restore_exchanges
 
 SESSIONS_ENV_VAR = "AIOS_JARVIS_SESSIONS"
 OUT_ENV_VAR = "AIOS_OUT_DIR"
@@ -257,6 +257,10 @@ class SessionDisk:
             meta.scenes += 1
             if not meta.first_question:
                 meta.first_question = str(event.get("question") or "")[:200]
+        if event.get("type") == "scene":
+            match = re.fullmatch(r"s-(\d+)", str(event.get("scene_id", "")))
+            if match is not None:
+                meta.scenes = max(meta.scenes, int(match.group(1)))
         self._write_meta(meta)
 
     def set_summary(self, session_id: str, summary: str) -> None:
@@ -294,7 +298,7 @@ class SessionDisk:
             raise SessionDiskError(
                 f"the events of session {session_id} cannot be read from {path}: {error}"
             ) from error
-        return collected
+        return normalize_scene_ids(collected)
 
     def remove(self, session_id: str) -> bool:
         identifier = check_id(session_id)
