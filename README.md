@@ -1,13 +1,19 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark-dark.svg"/>
-    <img src="docs/brand/wordmark-light.svg" alt="AIOS" width="240"/>
-  </picture>
+  <a href="https://aios.goatwhistle.ru/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark-dark.svg"/>
+      <img src="docs/brand/wordmark-light.svg" alt="AIOS" width="240"/>
+    </picture>
+  </a>
 </p>
 
 <p align="center">
   <b>Мультиагентная система управления фондом скважин Model_Z.</b><br/>
   Суррогат предлагает. OPM Flow решает. Пакет сдачи не соберётся, если они разошлись.
+</p>
+
+<p align="center">
+  <a href="https://aios.goatwhistle.ru/"><img src="https://img.shields.io/badge/Открыть_вживую-aios.goatwhistle.ru-3d22c3?style=for-the-badge&labelColor=11151c" alt="Открыть вживую"/></a>
 </p>
 
 <p align="center">
@@ -31,7 +37,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/overview.png" alt="Экран обзора: накопленный ЧДД, компенсация, отбор жидкости, закачка и обводнённость за весь горизонт управления" width="900"/>
+  <a href="https://aios.goatwhistle.ru/"><img src="docs/images/overview.png" alt="Экран обзора: накопленный ЧДД, компенсация, отбор жидкости, закачка и обводнённость за весь горизонт управления" width="900"/></a>
 </p>
 
 ---
@@ -141,10 +147,10 @@ flowchart LR
 
 | Шаг | Открыть | Что видно |
 |---|---|---|
-| 1 | [`/overview`](http://localhost:8000/overview) | Накопленный ЧДД, компенсация, отбор, закачка и обводнённость за все 225 управляющих шагов |
-| 2 | [`/field/projection`](http://localhost:8000/field/projection) | Измеренный граф связности λ: кто с кем связан через пласт |
-| 3 | [`/field/maps`](http://localhost:8000/field/maps) | Карты дека Model_Z: пористость, проницаемость, песчанистость — два пласта, k 1–26 и k 29–53 |
-| 4 | [`/money/comparison`](http://localhost:8000/money/comparison) | Происхождение каждого числа построчно; чемпион отмечен |
+| 1 | [`/overview`](https://aios.goatwhistle.ru/overview) | Накопленный ЧДД, компенсация, отбор, закачка и обводнённость за все 225 управляющих шагов |
+| 2 | [`/field/projection`](https://aios.goatwhistle.ru/field/projection) | Измеренный граф связности λ: кто с кем связан через пласт |
+| 3 | [`/field/maps`](https://aios.goatwhistle.ru/field/maps) | Карты дека Model_Z: пористость, проницаемость, песчанистость — два пласта, k 1–26 и k 29–53 |
+| 4 | [`/money/comparison`](https://aios.goatwhistle.ru/money/comparison) | Происхождение каждого числа построчно; чемпион отмечен |
 | 5 | Сфера Джарвиса | Вопрос словами — сцена из карточек с происхождением каждого числа |
 
 Маршрут с тем, что именно доказывает каждый шаг, и где отвечен каждый критерий оценки, —
